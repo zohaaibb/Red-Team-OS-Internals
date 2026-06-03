@@ -1,238 +1,93 @@
-Create two separate self-contained HTML files for red team education:
-
-File 1: Windows_Internals_RedTeam.html File 2: Linux_Internals_RedTeam.html
-
-Both files must follow this exact specification:
-
-VISUAL THEME — identical to this cyber aesthetic:
-
-Background: #050810, panels: #0a1020, accent: #00d4ff, danger: #ff3366, success: #00ff88, warning: #ff8800, purple: #bb86fc
-Fonts: Share Tech Mono (code/labels), Rajdhani (headings), Exo 2 (body) from Google Fonts
-Scanline overlay on body::before
-CSS grid background on hero section
-Glitch animation on h1
-Fixed left sidebar: logo, progress bar, navigation with green completion dots
-Collapsible module cards with colored left border on hover and open
-localStorage progress persistence
-Smooth scroll sidebar navigation
-FILE 1 — Windows Internals for Red Teamers
-
-Include these modules as collapsible cards with full explanations, ASCII diagrams, attack blocks, lab exercises, code blocks, and mental models:
-
-Module 1 — Windows Architecture Overview
-
-User mode vs Kernel mode — what the boundary means for attacks
-WIN32 API, Native API (ntdll.dll), kernel mode drivers
-How user-mode processes call into the kernel via syscalls
-Why red teamers care: AV/EDR lives in kernel mode, attacks happen in user mode
-ASCII diagram showing the architecture layers
-Attack relevance: why direct syscalls bypass EDR hooks
-Lab: use Process Hacker to see user vs kernel mode processes
-Module 2 — Processes and Threads
-
-What a process is: virtual address space, handles, security token
-What a thread is: stack, registers, execution context
-Process creation: CreateProcess internals, what happens step by step
-PID, PPID — parent-child relationships and why they matter
-Process injection overview: why attackers inject into other processes
-Attack block: common injection targets (explorer.exe, svchost.exe, lsass.exe)
-Lab: use Process Hacker and Sysinternals to read process details
-Module 3 — Windows Memory
-
-Virtual address space layout: stack, heap, PE image, TEB, PEB
-Pages, commits, reserves — VirtualAlloc explained
-RWX memory — why it is suspicious and how EDR detects it
-ASLR and DEP — what they are and classic bypass concepts
-Attack block: shellcode injection requires VirtualAlloc + WriteProcessMemory + CreateRemoteThread
-Code block: Windows API calls for shellcode execution
-Lab: use Process Hacker to inspect memory regions of a process
-Module 4 — Windows Authentication
-
-SAM database, NTDS.dit, LSA secrets
-NTLM authentication: challenge-response, why hash = credential
-Kerberos: TGT, TGS, KDC, AS-REQ/AS-REP flow
-LSASS process: what it stores, why it is the prime target
-Attack block: Mimikatz, sekurlsa::logonpasswords, lsadump::sam
-Pass-the-Hash, Pass-the-Ticket, Overpass-the-Hash explained
-Golden Ticket and Silver Ticket — what they are and why they persist
-ASCII diagram: full Kerberos flow with attack points labeled
-Code block: Mimikatz commands, Rubeus commands
-Lab: dump SAM hive offline, understand what the hashes mean
-Module 5 — Windows Registry
-
-Hive structure: HKLM, HKCU, HKCR, HKU, HKCC
-Key persistence locations: Run keys, Services, Scheduled Tasks
-Registry as attack surface: DLL hijacking via COM, UAC bypass paths
-Attack block: common persistence registry keys every red teamer knows
-Code block: reg query commands, PowerShell registry manipulation
-Lab: find all Run key entries on your Windows VM
-Module 6 — Windows Services and Scheduled Tasks
-
-What a service is: SCM, service binary, service account
-Service permissions: unquoted service path, weak permissions
-Scheduled tasks: schtasks, XML task definition, SYSTEM context abuse
-Attack block: persistence via services and scheduled tasks
-Code block: sc.exe commands, schtasks commands, PowerShell equivalents
-Lab: list all services, find one with a weak permission
-Module 7 — DLLs and DLL Hijacking
-
-What a DLL is: shared code loaded into process memory
-DLL search order: the sequence Windows uses to find DLLs
-DLL hijacking: placing a malicious DLL earlier in the search path
-DLL side-loading vs classic hijacking
-Attack block: tools and technique — Process Monitor to find missing DLLs
-Code block: minimal malicious DLL template in C
-Lab: use Process Monitor to find a DLL hijacking opportunity
-Module 8 — Windows Defender and EDR Internals
-
-How Windows Defender works: signatures, heuristics, cloud ML, AMSI
-AMSI: what it hooks, how it scans PowerShell and .NET
-ETW: Event Tracing for Windows — how security tools use it
-EDR hooks: userland hooks in ntdll.dll, how they intercept API calls
-Attack block: AMSI bypass techniques and why they work
-Direct syscalls: bypassing userland hooks by calling kernel directly
-Code block: AMSI bypass in PowerShell, direct syscall concept
-Lab: trigger AMSI with a test string, observe the block
-Module 9 — Active Directory Fundamentals
-
-AD structure: forest, domain, OU, trust relationships
-Objects: users, computers, groups, GPOs
-LDAP: how AD is queried, what BloodHound collects
-Kerberoasting: why SPNs are vulnerable, how to request and crack TGS
-AS-REP roasting: accounts without pre-auth, how to exploit
-BloodHound: attack paths, owned nodes, shortest path to DA
-Code block: BloodHound collection, Kerberoasting with Rubeus and Impacket
-ASCII diagram: AD object hierarchy with attack paths
-Lab: set up a basic AD lab, run BloodHound, find a path
-Module 10 — Windows Logging and Event IDs
-
-Security event log: what gets recorded, where it lives
-Critical event IDs every red teamer must know:
-4624: successful logon (logon types 2, 3, 10)
-4625: failed logon — password spraying detection
-4648: explicit credential use — runas, lateral movement
-4688: process creation — command line logging
-4698: scheduled task created
-4720: user account created
-7045: new service installed — PsExec detection
-Sysmon event IDs: 1 (process create), 3 (network connect), 7 (image load), 10 (process access)
-Attack block: which actions generate which event IDs — plan your attack to minimise noise
-Lab: enable Sysmon on Windows VM, run a scan, read the logs
-FILE 2 — Linux Internals for Red Teamers
-
-Include these modules as collapsible cards with full explanations, ASCII diagrams, attack blocks, lab exercises, code blocks, and mental models:
-
-Module 1 — Linux Architecture Overview
-
-Kernel vs userspace — the boundary and what it means
-Syscall interface: how userspace talks to kernel
-Everything is a file: /proc, /sys, /dev explained
-Attack relevance: living off the land, reading /proc for process info
-ASCII diagram: kernel/userspace architecture
-Lab: read /proc/self and understand what is there
-Module 2 — Linux File System and Permissions
-
-File permission model: rwx for owner, group, others
-Octal notation: 755, 644, 777 — what each means
-SUID and SGID: what they do, why SUID binaries are privilege escalation gold
-Sticky bit: what it does on directories
-Attack block: find all SUID binaries — find / -perm -4000 2>/dev/null
-/etc/passwd and /etc/shadow: structure, what each field means
-Code block: permission commands, find SUID, read shadow
-Lab: find all SUID binaries on your Kali VM and look up each one on GTFOBins
-Module 3 — Linux Processes
-
-Process tree: init/systemd as PID 1, all processes descend from it
-/proc/[pid] directory: what every file inside means
-Process credentials: real UID, effective UID, saved UID — why they differ
-Fork and exec: how new processes are created
-Attack block: /proc/[pid]/maps shows memory layout, /proc/[pid]/environ shows environment variables including credentials
-Code block: ps aux, /proc reading, strace basics
-Lab: read /proc/1/maps and /proc/self/environ on your Kali VM
-Module 4 — Linux Privilege Escalation Vectors
-
-Sudo misconfigurations: sudo -l, what to look for
-Cron jobs: world-writable scripts run as root
-Writable /etc/passwd: add a root user
-Kernel exploits: when and how
-PATH hijacking: replacing a binary in a privileged script
-Capabilities: what they are, cap_setuid as escalation path
-Attack block: full checklist of privesc checks
-Code block: LinPEAS one-liner, manual privesc commands
-Lab: intentionally misconfigure sudo on your VM and exploit it
-Module 5 — Linux Persistence
-
-Cron jobs: user crontab vs system crontab vs /etc/cron.d
-Bashrc and profile: command injection for user persistence
-SSH authorized_keys: adding your public key
-Systemd services: create a malicious service unit
-LD_PRELOAD: library preloading for persistence and privilege escalation
-Attack block: persistence checklist for post-exploitation
-Code block: crontab persistence, authorized_keys, systemd service
-Lab: set up three different persistence mechanisms on your Kali VM
-Module 6 — Linux Networking Internals
-
-Network namespaces: how containers isolate networking
-iptables and nftables: how Linux firewalls work
-/proc/net/tcp and /proc/net/udp: reading open connections without tools
-Socket types: SOCK_STREAM (TCP), SOCK_DGRAM (UDP), SOCK_RAW
-Attack block: read /proc/net/tcp to find listening services without netstat
-Code block: iptables rules, /proc/net reading, ss and netstat commands
-Lab: read /proc/net/tcp and decode the hex addresses manually
-Module 7 — Linux Authentication
-
-PAM (Pluggable Authentication Modules): how login works
-/etc/passwd and /etc/shadow: full field breakdown
-Password hashing: 1 MD5, 6 SHA-512, what the format means
-SSH key authentication: how it works at the protocol level
-Attack block: credential files to check post-compromise
-Code block: crack shadow hashes with hashcat, john
-Lab: extract your own shadow hash and crack it in a local lab
-Module 8 — Memory and Shared Libraries
-
-Virtual memory layout: stack, heap, .text, .data, mmap regions
-Shared libraries: .so files, how dynamic linking works
-LD_PRELOAD hijacking: full explanation and attack
-/proc/[pid]/maps: reading the memory map of any process
-Attack block: LD_PRELOAD attack step by step
-Code block: write a minimal malicious .so file, compile, inject
-Lab: write a minimal LD_PRELOAD library that hooks a function
-Module 9 — Linux Logging and Detection
-
-syslog, journald: where logs live and how to read them
-/var/log/auth.log: SSH attempts, sudo usage, su commands
-/var/log/syslog: system events
-auditd: the Linux audit framework, what it captures
-bash history: .bash_history, how to avoid leaving traces
-Attack block: which commands generate which log entries — plan to minimise noise
-Code block: log reading commands, clearing history (educational)
-Lab: enable auditd, run suspicious commands, read the audit log
-Module 10 — Linux Containers and Namespaces
-
-What containers are: namespaces + cgroups
-Namespace types: pid, net, mnt, uts, ipc, user
-Container escape vectors: privileged containers, mounted Docker socket, writable hostPath
-/proc/1/cgroup: how to detect if you are inside a container
-Attack block: container escape checklist
-Code block: detect container, Docker socket abuse commands
-Lab: run a Docker container, read /proc/1/cgroup, identify you are containerised
-JAVASCRIPT FUNCTIONALITY for both files:
-
-Collapsible modules: click header expands/collapses with chevron rotation
-Checklist items: click to toggle done class, green checkmark appears, text strikethrough
-localStorage persistence with unique keys per module per file
-Progress bar updates on every tick showing X/Y tasks
-Sidebar dots turn green when all checklist items in that module are complete
-Smooth scroll navigation
-COMPONENT STYLES:
-
-.ab — attack block: red left border, red tinted background
-.ib — info block: cyan left border
-.lb — lab block: green left border
-.wb — warning block: orange left border
-.mm — mental model: purple border, italic text
-.cb — code block: near-black background, syntax highlighting (.cmd cyan, .cmt grey, .flg orange, .val green, .pth purple)
-.ascii — ASCII diagrams: black background, cyan monospace text
-.dtable — tables: dark header, cyan first column
-.cl-item — checklist rows with green checkbox when done
-Make every module contain complete educational content written in full. No placeholders. Every concept fully explained. Every attack technique connected to the theory. Every lab exercise specific and actionable. Both files fully self-contained and functional offline.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Red Team OS Internals</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #050810;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #00d4ff, #00ff88);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p { color: #999; margin-bottom: 3rem; font-size: 1.1rem; }
+    .cards {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .card {
+      background: #0a1020;
+      border: 1px solid #1a1a2e;
+      border-radius: 16px;
+      padding: 2.5rem;
+      width: 340px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.3s;
+    }
+    .card:hover {
+      border-color: #00d4ff;
+      transform: translateY(-6px);
+      box-shadow: 0 12px 40px rgba(0, 212, 255, 0.15);
+    }
+    .card .icon { font-size: 3rem; margin-bottom: 1rem; }
+    .card h2 { color: #fff; margin-bottom: 0.75rem; }
+    .card p { color: #666; font-size: 0.95rem; margin-bottom: 0; }
+    .card .tag {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 4px 14px;
+      background: #00d4ff11;
+      border: 1px solid #00d4ff33;
+      border-radius: 20px;
+      color: #00d4ff;
+      font-size: 0.8rem;
+    }
+    footer {
+      margin-top: 4rem;
+      color: #333;
+      font-size: 0.85rem;
+    }
+    @media (max-width: 768px) {
+      h1 { font-size: 2rem; }
+      .card { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Red Team OS Internals</h1>
+  <p>Comprehensive Windows &amp; Linux internals for offensive security professionals</p>
+  <div class="cards">
+    <a class="card" href="Windows_Internals_RedTeam.html">
+      <div class="icon">🪟</div>
+      <h2>Windows Internals</h2>
+      <p>Architecture, processes, memory, authentication, AD, EDR bypass, logging &amp; more — 10 modules</p>
+      <span class="tag">10 Modules</span>
+    </a>
+    <a class="card" href="Linux_Internals_RedTeam.html">
+      <div class="icon">🐧</div>
+      <h2>Linux Internals</h2>
+      <p>Kernel, filesystems, privesc, persistence, containers, networking, logging &amp; more — 10 modules</p>
+      <span class="tag">10 Modules</span>
+    </a>
+  </div>
+  <footer>Red Team OS Internals &copy; 2026</footer>
+</body>
+</html>
